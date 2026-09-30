@@ -1,0 +1,13 @@
+{
+  "name": "application-dna",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Application DNA: an AI-assisted knowledge repository for enterprise applications (modules, screens, functionalities, rules, integrations).",
+  "main": "index.html",
+  "scripts": {
+    "start": "npx serve .",
+    "validate": "node -e \"JSON.parse(require('fs').readFileSync('knowledge.schema.json','utf8'));console.log('schema ok')\""
+  },
+  "keywords": ["knowledge-management", "enterprise-applications", "documentation", "ai"],
+  "license": "UNLICENSED"
+}
