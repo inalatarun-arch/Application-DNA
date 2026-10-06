@@ -12,6 +12,7 @@ import type { RelatedOption } from '@/components/ui/RelatedPicker';
 import { sorted } from '@/lib/exporters';
 import CandidateRow from './CandidateRow';
 import BacklogRow from './BacklogRow';
+import RequirementImportModal from './RequirementImportModal';
 
 interface Props {
   project: Project;
@@ -48,7 +49,7 @@ export default function ExtractedRequirementsTab({ project, onOpenMeeting }: Pro
   const [message, setMessage] = useState('');
   const [adding, setAdding] = useState(false);
   const [toDelete, setToDelete] = useState<Requirement | null>(null);
-  const [busy, setBusy] = useState(false);
+  const [busy, setBusy] = useState(false);\n  const [importOpen, setImportOpen] = useState(false);
 
   const meetingTitle = useMemo(() => new Map((meetings ?? []).map((m) => [m.id, m.title])), [meetings]);
   const meetingDate = useMemo(() => new Map((meetings ?? []).map((m) => [m.id, m.meetingDate])), [meetings]);
@@ -201,7 +202,7 @@ export default function ExtractedRequirementsTab({ project, onOpenMeeting }: Pro
         )}
       </section>
 
-      <QuickCreateModal
+      <RequirementImportModal open={importOpen} project={project} onClose={() => setImportOpen(false)} onImported={() => setImportOpen(false)} />\n\n      <QuickCreateModal
         open={adding}
         title="Add requirement"
         nameLabel="Requirement"
