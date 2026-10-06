@@ -17,7 +17,8 @@
     "lucide-react": "^0.469.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
-    "react-router-dom": "^6.28.1"
+    "react-router-dom": "^6.28.1",
+    "mermaid": "^11.4.1"
   },
   "devDependencies": {
     "@types/d3-force": "^3.0.10",
