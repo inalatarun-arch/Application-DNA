@@ -140,7 +140,7 @@ export async function deleteMeeting(id: string): Promise<void> {
 
 // ------------------------------------------------------------------ backlog
 
-export async function addRequirement(projectId: string, fields: { title: string; description?: string; kind?: RequirementKind }): Promise<Requirement> {
+export async function addRequirement(projectId: string, fields: { title: string; description?: string; kind?: RequirementKind; acceptanceCriteria?: string[]; priority?: 'low'|'medium'|'high'; functionalityIds?: string[]; source?: string }): Promise<Requirement> {
   const requirement: Requirement = {
     ...stamp(),
     projectId,
