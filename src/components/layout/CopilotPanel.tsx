@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import { Bot, Loader2, Send, X } from 'lucide-react';
 import { db } from '@/db/db';
 import { generateText, describeError } from '@/services/geminiService';
