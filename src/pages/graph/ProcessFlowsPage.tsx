@@ -1,6 +1,6 @@
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { Check, Copy, Download, Image as ImageIcon, Minus, Plus, Workflow } from 'lucide-react';
+import { Check, Copy, Download, Image as ImageIcon, Loader2, Minus, Plus, Sparkles, Workflow } from 'lucide-react';
 import PageHeader from '@/components/ui/PageHeader';
 import EmptyState from '@/components/ui/EmptyState';
 import FlowDiagram from '@/components/flow/FlowDiagram';
@@ -14,7 +14,7 @@ import { layoutFlow } from '@/lib/flowLayout';
 import { exportFlowPng, exportFlowSvg } from '@/lib/flowExport';
 import type { GraphSource } from '@/lib/graphModel';
 import { cn } from '@/lib/cn';
-import KnowledgeTabs from './KnowledgeTabs';
+import KnowledgeTabs from './KnowledgeTabs';\nimport { useApiKey } from '@/hooks/useApiKey';\nimport { generateKnowledgeFlow } from '@/services/knowledgeFlowAI';\nimport { db } from '@/db/db';\nimport { describeError, isGeminiError } from '@/services/geminiService';\nimport MermaidDiagram from '@/components/flow/MermaidDiagram';
 
 type Scope = 'functionality' | 'module';
 
@@ -41,7 +41,7 @@ function FlowsView({ source }: { source: GraphSource }) {
   const [view, setView] = usePersistentState<FlowView>('eih.flow.view', 'swimlane');
   const [zoom, setZoom] = useState(1);
   const [copied, setCopied] = useState(false);
-  const [exportError, setExportError] = useState('');
+  const [exportError, setExportError] = useState('');\n  const [aiFlow, setAiFlow] = useState('');\n  const [aiBusy, setAiBusy] = useState(false);\n  const [aiError, setAiError] = useState('');\n  const apiKey = useApiKey();
   const frame = useRef<HTMLDivElement>(null);
 
   const scope: Scope = params.get('type') === 'module' ? 'module' : 'functionality';
@@ -72,7 +72,7 @@ function FlowsView({ source }: { source: GraphSource }) {
   }, [functionalities, screenName]);
 
   const selectedFn = scope === 'functionality' ? functionalities.find((f) => f.id === idParam) ?? groups[0]?.items[0] : undefined;
-  const selectedMod = scope === 'module' ? modules.find((m) => m.id === idParam) ?? modules[0] : undefined;
+  const selectedMod = scope === 'module' ? modules.find((m) => m.id === idParam) ?? modules[0] : undefined;\n  useEffect(() => { setAiFlow(''); setAiError(''); }, [selectedFn?.id, selectedMod?.id]);
 
   const model: FlowModel | null = useMemo(() => {
     if (selectedFn) return buildFunctionalityFlow(selectedFn, source);
@@ -97,6 +97,20 @@ function FlowsView({ source }: { source: GraphSource }) {
     );
 
   const title = model ? `${model.title}${model.subtitle ? ` (${model.subtitle})` : ''}` : 'Process flow';
+  const generateAiFlow = async () => {
+    if (!selectedFn || !apiKey) return;
+    setAiBusy(true); setAiError('');
+    try {
+      const screen = selectedFn.screenId ? source.screens.find(s => s.id === selectedFn.screenId) : undefined;
+      const module = selectedFn.moduleId ? source.modules.find(m => m.id === selectedFn.moduleId) : undefined;
+      const components = source.components.filter(c => (c.functionalityIds ?? []).includes(selectedFn.id) || (c.screenIds ?? []).includes(selectedFn.screenId ?? ''));
+      const result = await generateKnowledgeFlow(source.applications.find(a => a.id === selectedFn.applicationId)!, module, screen, selectedFn, components);
+      await db.functionalities.update(selectedFn.id, { processFlow: result.data.mermaid, updatedAt: new Date().toISOString() });
+      setAiFlow(result.data.mermaid);
+    } catch (err) {
+      if (!(isGeminiError(err) && err.code === 'ABORTED')) setAiError(describeError(err));
+    } finally { setAiBusy(false); }
+  };
   const base = model ? `${slug(model.title)}-${view}` : 'process-flow';
 
   const fitWidth = () => {
@@ -186,6 +200,12 @@ function FlowsView({ source }: { source: GraphSource }) {
               {model.subtitle && <p className="truncate text-body-md text-on-surface-variant">{model.subtitle}</p>}
             </div>
             <div className="flex flex-wrap items-center gap-2">
+              {scope === 'functionality' && selectedFn && (
+                <button type="button" className="btn btn-primary px-3 py-1.5" disabled={aiBusy || !apiKey} onClick={() => void generateAiFlow()}>
+                  {aiBusy ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} aria-hidden />}
+                  {aiBusy ? 'Generating…' : 'Generate with Gemini'}
+                </button>
+              )}            <div className="flex flex-wrap items-center gap-2">
               <div role="group" aria-label="Zoom" className="flex items-center rounded border border-outline-variant">
                 <button type="button" className="icon-btn" aria-label="Zoom out" onClick={() => setZoom((z) => Math.max(0.4, Number((z - 0.1).toFixed(2))))}><Minus size={16} aria-hidden /></button>
                 <span className="w-12 text-center text-label-md tabular-nums">{Math.round(zoom * 100)}%</span>
@@ -207,6 +227,8 @@ function FlowsView({ source }: { source: GraphSource }) {
             <FlowDiagram layout={layout} view={view} palette={paletteFor(theme)} title={title} idPrefix="eih-view" scale={zoom} onNodeClick={(n) => n.to && navigate(n.to)} />
           </div>
 
+          {aiError && <p role="alert" className="rounded border border-error bg-error-container p-3 text-body-md text-error">{aiError}</p>}
+          {aiFlow && <div className="space-y-2"><h3 className="text-body-md font-semibold">AI-generated Mermaid flow</h3><MermaidDiagram source={aiFlow}/><p className="text-label-md font-normal text-on-surface-variant">This flow is generated from the current Application DNA evidence. Regenerate it after adding or changing application functionality, screens or technical mappings.</p></div>}
           <p className="text-label-md font-normal text-on-surface-variant">
             Rounded ends mark where the flow starts and finishes, rectangles are steps, diamonds are decisions and slanted boxes are data. Click a step to open its page. PNG and SVG exports always use the light theme.
           </p>
