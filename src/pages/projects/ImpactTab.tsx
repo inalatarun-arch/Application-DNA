@@ -22,8 +22,8 @@ function parseAssessment(content: string): ImpactAssessment | null {
     const v = JSON.parse(content) as Partial<ImpactAssessment>;
     return {
       summary: typeof v.summary === 'string' ? v.summary : '',
-      functional: Array.isArray(v.functional) ? v.functional : [],
-      technical: Array.isArray(v.technical) ? v.technical : [],
+      functional: Array.isArray(v.functional) ? v.functional.map((x) => ({ ...x, impactedPart: typeof x.impactedPart === 'string' ? x.impactedPart : '', currentState: typeof x.currentState === 'string' ? x.currentState : '', proposedChange: typeof x.proposedChange === 'string' ? x.proposedChange : '', rationale: typeof x.rationale === 'string' ? x.rationale : '' })) : [],
+      technical: Array.isArray(v.technical) ? v.technical.map((x) => ({ ...x, impactedPart: typeof x.impactedPart === 'string' ? x.impactedPart : '', currentState: typeof x.currentState === 'string' ? x.currentState : '', proposedChange: typeof x.proposedChange === 'string' ? x.proposedChange : '', rationale: typeof x.rationale === 'string' ? x.rationale : '' })) : [],
       risks: Array.isArray(v.risks) ? v.risks : [],
       gaps: Array.isArray(v.gaps) ? v.gaps : [],
     };
