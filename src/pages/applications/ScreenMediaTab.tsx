@@ -69,6 +69,20 @@ export default function ScreenMediaTab({ screen }: { screen: Screen }) {
   const [analysisNotice, setAnalysisNotice] = useState('');
   const apiKey = useApiKey();
 
+  const analyzeFiles = async (filesToAnalyze: File[]) => {
+    if (!filesToAnalyze.length || !apiKey) return;
+    setAnalyzing(true); setAnalysisError(''); setAnalysisNotice('');
+    try {
+      const { filesToGeminiParts } = await import('@/lib/filePayload');
+      const result = await extractScreenFromFiles(screen, await filesToGeminiParts(filesToAnalyze));
+      await db.screens.update(screen.id, { ...result.data, updatedAt: nowIso() });
+      setAnalysisNotice('Gemini extracted ' + result.data.uiElements.length + ' UI elements. Review them in Screen Overview.');
+      await addFiles(filesToAnalyze);
+    } catch (err) {
+      if (!(isGeminiError(err) && err.code === 'ABORTED')) setAnalysisError(describeError(err));
+    } finally { setAnalyzing(false); }
+  };
+
   const addFiles = useCallback(
     async (files: File[]) => {
       if (files.length === 0) return;
@@ -131,6 +145,11 @@ export default function ScreenMediaTab({ screen }: { screen: Screen }) {
           {busy ? 'Adding…' : 'Add images'}
         </button>
         <input ref={fileInput} type="file" accept="image/*" multiple className="sr-only" aria-label="Choose image files" onChange={(e) => { void addFiles(Array.from(e.target.files ?? [])); e.target.value = ''; }} />
+        <label className="btn btn-secondary cursor-pointer">
+          <Sparkles size={16} aria-hidden />
+          {analyzing ? <><Loader2 size={14} className="animate-spin" /> Analysing…</> : 'Analyze screenshot with AI'}
+          <input type="file" accept="image/*,.pdf,.txt,.doc,.docx" multiple className="sr-only" disabled={analyzing || !apiKey} onChange={(e) => { void analyzeFiles(Array.from(e.target.files ?? [])); e.target.value = ''; }} />
+        </label>
       </div>
 
       <div
@@ -143,6 +162,10 @@ export default function ScreenMediaTab({ screen }: { screen: Screen }) {
         <p className="mt-2 text-body-md font-medium">Drop images here, or paste a screenshot with Ctrl/⌘+V</p>
         <p className="text-label-md font-normal text-on-surface-variant">PNG, JPEG, WebP, GIF or SVG up to 15 MB. Large images are resized to 1920 px.</p>
       </div>
+
+      {analysisNotice && <p role="status" className="rounded border border-outline-variant bg-surface-low p-3 text-body-md">{analysisNotice}</p>}
+      {analysisError && <p role="alert" className="rounded border border-error bg-error-container p-3 text-body-md text-error">{analysisError}</p>}
+      {!apiKey && <p className="field-hint">Configure Gemini in Settings to analyze screenshots with AI.</p>}
 
       {analysisNotice && <p role="status" className="rounded border border-outline-variant bg-surface-low p-3 text-body-md">{analysisNotice}</p>}
       {analysisError && <p role="alert" className="rounded border border-error bg-error-container p-3 text-body-md text-error">{analysisError}</p>}
