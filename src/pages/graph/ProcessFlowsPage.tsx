@@ -14,7 +14,12 @@ import { layoutFlow } from '@/lib/flowLayout';
 import { exportFlowPng, exportFlowSvg } from '@/lib/flowExport';
 import type { GraphSource } from '@/lib/graphModel';
 import { cn } from '@/lib/cn';
-import KnowledgeTabs from './KnowledgeTabs';\nimport { useApiKey } from '@/hooks/useApiKey';\nimport { generateKnowledgeFlow } from '@/services/knowledgeFlowAI';\nimport { db } from '@/db/db';\nimport { describeError, isGeminiError } from '@/services/geminiService';\nimport MermaidDiagram from '@/components/flow/MermaidDiagram';
+import KnowledgeTabs from './KnowledgeTabs';
+import { useApiKey } from '@/hooks/useApiKey';
+import { generateKnowledgeFlow } from '@/services/knowledgeFlowAI';
+import { db } from '@/db/db';
+import { describeError, isGeminiError } from '@/services/geminiService';
+import MermaidDiagram from '@/components/flow/MermaidDiagram';
 
 type Scope = 'functionality' | 'module';
 
