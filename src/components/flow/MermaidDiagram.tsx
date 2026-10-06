@@ -22,5 +22,5 @@ export default function MermaidDiagram({ source }: { source: string }) {
     void render();
     return () => { active = false; };
   }, [id, source]);
-  return <div className="overflow-auto rounded border border-outline-variant bg-surface-lowest p-4">{error ? <><p className="text-body-md text-error">{error}</p><pre className="mt-3 whitespace-pre-wrap font-mono text-code">{source}</pre></> : <div ref={ref} className="flex min-h-48 justify-center [&_svg]:max-w-full" />}</div>;
+  return <div className="overflow-auto rounded border border-outline-variant bg-surface-lowest p-4">{error ? <><p className="text-body-md text-error">{error}</p><pre className="mt-3 whitespace-pre-wrap font-mono text-code">{source}</pre></> : <div ref={ref} className="flex min-h-48 justify-center [&_svg]:max-w-full" aria-label="Mermaid process flow" />}</div>;
 }
