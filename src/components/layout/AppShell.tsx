@@ -5,6 +5,8 @@ import { usePersistentState } from '@/hooks/usePersistentState';
 import Sidebar from './Sidebar';
 import Header from './Header';
 import CommandPalette from './CommandPalette';
+import CopilotPanel from './CopilotPanel';
+import GlobalAssistantButton from './GlobalAssistantButton';
 
 export default function AppShell() {
   const isMobile = useMediaQuery('(max-width: 767px)');
@@ -12,6 +14,7 @@ export default function AppShell() {
   const [collapsed, setCollapsed] = usePersistentState('eih.sidebar.collapsed', false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
+  const [copilotOpen, setCopilotOpen] = useState(false);
   const { pathname } = useLocation();
 
   // Tablet always shows the icon rail; desktop honours the saved preference.
@@ -52,6 +55,8 @@ export default function AppShell() {
         </main>
       </div>
       <CommandPalette open={searchOpen} onClose={() => setSearchOpen(false)} />
+      <GlobalAssistantButton onClick={() => setCopilotOpen(true)} />
+      <CopilotPanel open={copilotOpen} onClose={() => setCopilotOpen(false)} />
     </div>
   );
 }
