@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { Layers, Plus, Trash2 } from 'lucide-react';
+import { Layers, Plus, Sparkles, Trash2 } from 'lucide-react';
 import { db } from '@/db/db';
 import { createScreen, deleteModule } from '@/db/catalog';
 import type { AppModule } from '@/db/types';
@@ -10,6 +10,7 @@ import SaveStatus from '@/components/ui/SaveStatus';
 import ConfirmModal from '@/components/ui/ConfirmModal';
 import QuickCreateModal from '@/components/ui/QuickCreateModal';
 import EmptyState from '@/components/ui/EmptyState';
+import AiScreenCreateModal from './AiScreenCreateModal';
 
 export default function ModuleDetailPage() {
   const { appId = '', moduleId = '' } = useParams();
@@ -31,6 +32,7 @@ function ModuleEditor({ module: initial }: { module: AppModule }) {
   const { draft, update, state } = useAutosave(db.modules, initial);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [newScreen, setNewScreen] = useState(false);
+  const [aiScreen, setAiScreen] = useState(false);
 
   const screens = useLiveQuery(() => db.screens.where('moduleId').equals(initial.id).toArray(), [initial.id]);
   const sorted = [...(screens ?? [])].sort((a, b) => a.name.localeCompare(b.name));
@@ -64,6 +66,7 @@ function ModuleEditor({ module: initial }: { module: AppModule }) {
       <section className="card" aria-labelledby="module-screens">
         <div className="mb-4 flex items-center justify-between gap-2">
           <h2 id="module-screens" className="text-headline-md">Screens</h2>
+          <button type="button" className="btn btn-secondary" onClick={() => setAiScreen(true)}><Sparkles size={16} aria-hidden />AI create screen</button>
           <button type="button" className="btn btn-primary" onClick={() => setNewScreen(true)}>
             <Plus size={16} aria-hidden />
             Add screen
@@ -84,6 +87,8 @@ function ModuleEditor({ module: initial }: { module: AppModule }) {
           </ul>
         )}
       </section>
+
+      <AiScreenCreateModal open={aiScreen} module={initial} onClose={() => setAiScreen(false)} onCreated={(id) => navigate(`${appBase}/screens/${id}`)} />
 
       <QuickCreateModal
         open={newScreen}

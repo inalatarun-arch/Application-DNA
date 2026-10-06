@@ -7,7 +7,7 @@ export interface GeminiModelOption {
 /** Google-maintained alias that follows the current Flash release. */
 export const DEFAULT_MODEL = 'gemini-flash-latest';
 
-export type AiFeature = 'transcript' | 'impact' | 'frd' | 'tdd' | 'testcases' | 'defects' | 'copilot';
+export type AiFeature = 'transcript' | 'impact' | 'frd' | 'tdd' | 'testcases' | 'defects' | 'copilot' | 'application-ingestion' | 'screen-extraction' | 'requirement-import' | 'project-flow' | 'knowledge-flow';
 
 export const AI_FEATURES: Array<{ id: AiFeature; label: string; description: string }> = [
   { id: 'transcript', label: 'Transcript processing', description: 'Meeting notes and requirement extraction' },
@@ -17,6 +17,11 @@ export const AI_FEATURES: Array<{ id: AiFeature; label: string; description: str
   { id: 'testcases', label: 'Test case generation', description: 'Unit, SIT, regression and UAT cases' },
   { id: 'defects', label: 'Defect analysis', description: 'Root cause and similar-defect suggestions' },
   { id: 'copilot', label: 'Copilot', description: 'Natural-language search across the repository' },
+  { id: 'application-ingestion', label: 'Application ingestion', description: 'Build and update application knowledge from text and files' },
+  { id: 'screen-extraction', label: 'Screen extraction', description: 'Extract screen controls and business clues from screenshots' },
+  { id: 'requirement-import', label: 'Requirement import', description: 'Extract project requirements from uploaded files' },
+  { id: 'project-flow', label: 'Project process flow', description: 'Generate future-state flows from requirements' },
+  { id: 'knowledge-flow', label: 'Knowledge graph flow', description: 'Generate Mermaid flows from application evidence' },
 ];
 
 export interface AiSettings {

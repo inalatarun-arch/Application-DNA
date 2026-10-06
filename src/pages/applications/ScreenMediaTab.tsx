@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { ImagePlus, Trash2, UploadCloud } from 'lucide-react';
+import { ImagePlus, Loader2, Sparkles, Trash2, UploadCloud } from 'lucide-react';
 import { db, newId, nowIso } from '@/db/db';
 import type { Screen, ScreenMedia } from '@/db/types';
 import Modal from '@/components/ui/Modal';
@@ -8,6 +8,9 @@ import ConfirmModal from '@/components/ui/ConfirmModal';
 import { processImage } from '@/lib/image';
 import { formatBytes } from '@/lib/format';
 import { cn } from '@/lib/cn';
+import { useApiKey } from '@/hooks/useApiKey';
+import { extractScreenFromFiles } from '@/services/screenAI';
+import { describeError, isGeminiError } from '@/services/geminiService';
 
 type Kind = ScreenMedia['kind'];
 
@@ -61,6 +64,24 @@ export default function ScreenMediaTab({ screen }: { screen: Screen }) {
   const [errors, setErrors] = useState<string[]>([]);
   const [preview, setPreview] = useState<ScreenMedia | null>(null);
   const [toDelete, setToDelete] = useState<ScreenMedia | null>(null);
+  const [analyzing, setAnalyzing] = useState(false);
+  const [analysisError, setAnalysisError] = useState('');
+  const [analysisNotice, setAnalysisNotice] = useState('');
+  const apiKey = useApiKey();
+
+  const analyzeFiles = async (filesToAnalyze: File[]) => {
+    if (!filesToAnalyze.length || !apiKey) return;
+    setAnalyzing(true); setAnalysisError(''); setAnalysisNotice('');
+    try {
+      const { filesToGeminiParts } = await import('@/lib/filePayload');
+      const result = await extractScreenFromFiles(screen, await filesToGeminiParts(filesToAnalyze));
+      await db.screens.update(screen.id, { ...result.data, updatedAt: nowIso() });
+      setAnalysisNotice('Gemini extracted ' + result.data.uiElements.length + ' UI elements. Review them in Screen Overview.');
+      await addFiles(filesToAnalyze);
+    } catch (err) {
+      if (!(isGeminiError(err) && err.code === 'ABORTED')) setAnalysisError(describeError(err));
+    } finally { setAnalyzing(false); }
+  };
 
   const addFiles = useCallback(
     async (files: File[]) => {
@@ -119,11 +140,16 @@ export default function ScreenMediaTab({ screen }: { screen: Screen }) {
             <option value="wireframe">Wireframe</option>
           </select>
         </div>
-        <button type="button" className="btn btn-primary" onClick={() => fileInput.current?.click()} disabled={busy}>
+        <button type="button" className="btn btn-primary" onClick={() => fileInput.current?.click()} disabled={busy || analyzing}>
           <ImagePlus size={16} aria-hidden />
           {busy ? 'Adding…' : 'Add images'}
         </button>
         <input ref={fileInput} type="file" accept="image/*" multiple className="sr-only" aria-label="Choose image files" onChange={(e) => { void addFiles(Array.from(e.target.files ?? [])); e.target.value = ''; }} />
+        <label className="btn btn-secondary cursor-pointer">
+          <Sparkles size={16} aria-hidden />
+          {analyzing ? <><Loader2 size={14} className="animate-spin" /> Analysing…</> : 'Analyze screenshot with AI'}
+          <input type="file" accept="image/*,.pdf,.txt,.doc,.docx" multiple className="sr-only" disabled={analyzing || !apiKey} onChange={(e) => { void analyzeFiles(Array.from(e.target.files ?? [])); e.target.value = ''; }} />
+        </label>
       </div>
 
       <div
@@ -136,6 +162,14 @@ export default function ScreenMediaTab({ screen }: { screen: Screen }) {
         <p className="mt-2 text-body-md font-medium">Drop images here, or paste a screenshot with Ctrl/⌘+V</p>
         <p className="text-label-md font-normal text-on-surface-variant">PNG, JPEG, WebP, GIF or SVG up to 15 MB. Large images are resized to 1920 px.</p>
       </div>
+
+      {analysisNotice && <p role="status" className="rounded border border-outline-variant bg-surface-low p-3 text-body-md">{analysisNotice}</p>}
+      {analysisError && <p role="alert" className="rounded border border-error bg-error-container p-3 text-body-md text-error">{analysisError}</p>}
+      {!apiKey && <p className="field-hint">Configure Gemini in Settings to analyze screenshots with AI.</p>}
+
+      {analysisNotice && <p role="status" className="rounded border border-outline-variant bg-surface-low p-3 text-body-md">{analysisNotice}</p>}
+      {analysisError && <p role="alert" className="rounded border border-error bg-error-container p-3 text-body-md text-error">{analysisError}</p>}
+      {!apiKey && <p className="field-hint">Configure Gemini in Settings to analyze screenshots with AI.</p>}
 
       {errors.length > 0 && (
         <ul role="alert" className="rounded border border-error bg-error-container p-3 text-body-md text-error">

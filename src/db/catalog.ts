@@ -203,6 +203,7 @@ export async function createScreen(applicationId: string, moduleId: string | und
     functionalOwner: '',
     navigationPath: '',
     fieldDescriptions: [],
+    uiElements: [],
     validationRules: [],
     workflowSteps: [],
     approvalLogic: '',

@@ -22,8 +22,8 @@ function parseAssessment(content: string): ImpactAssessment | null {
     const v = JSON.parse(content) as Partial<ImpactAssessment>;
     return {
       summary: typeof v.summary === 'string' ? v.summary : '',
-      functional: Array.isArray(v.functional) ? v.functional : [],
-      technical: Array.isArray(v.technical) ? v.technical : [],
+      functional: Array.isArray(v.functional) ? v.functional.map((x) => ({ ...x, impactedPart: typeof x.impactedPart === 'string' ? x.impactedPart : '', currentState: typeof x.currentState === 'string' ? x.currentState : '', proposedChange: typeof x.proposedChange === 'string' ? x.proposedChange : '', rationale: typeof x.rationale === 'string' ? x.rationale : '' })) : [],
+      technical: Array.isArray(v.technical) ? v.technical.map((x) => ({ ...x, impactedPart: typeof x.impactedPart === 'string' ? x.impactedPart : '', currentState: typeof x.currentState === 'string' ? x.currentState : '', proposedChange: typeof x.proposedChange === 'string' ? x.proposedChange : '', rationale: typeof x.rationale === 'string' ? x.rationale : '' })) : [],
       risks: Array.isArray(v.risks) ? v.risks : [],
       gaps: Array.isArray(v.gaps) ? v.gaps : [],
     };
@@ -264,7 +264,7 @@ export default function ImpactTab({ project }: { project: Project }) {
                     {rows.map((r, i) => (
                       <li key={i} className="flex items-start gap-3 px-3 py-2">
                         <span className="mt-0.5 shrink-0"><StatusBadge status={r.severity} label={r.severity === 'high' ? 'High' : r.severity === 'low' ? 'Low' : 'Medium'} /></span>
-                        <span className="min-w-0"><span className="block font-medium">{r.area}</span><span className="block text-body-md text-on-surface-variant">{r.description}</span></span>
+                        <span className="min-w-0"><span className="block font-medium">{r.area}</span><span className="block text-body-md text-on-surface-variant">{r.description}</span>{r.impactedPart && <span className="mt-1 block text-body-md"><strong>Impacted part:</strong> {r.impactedPart}</span>}{r.currentState && <span className="block text-body-md text-on-surface-variant"><strong>Current:</strong> {r.currentState}</span>}{r.proposedChange && <span className="block text-body-md text-on-surface-variant"><strong>Change:</strong> {r.proposedChange}</span>}{r.rationale && <span className="block text-body-md text-on-surface-variant"><strong>Why:</strong> {r.rationale}</span>}</span>
                       </li>
                     ))}
                   </ul>

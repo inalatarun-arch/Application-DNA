@@ -12,6 +12,7 @@ import type { RelatedOption } from '@/components/ui/RelatedPicker';
 import { sorted } from '@/lib/exporters';
 import CandidateRow from './CandidateRow';
 import BacklogRow from './BacklogRow';
+import RequirementImportModal from './RequirementImportModal';
 
 interface Props {
   project: Project;
@@ -49,6 +50,7 @@ export default function ExtractedRequirementsTab({ project, onOpenMeeting }: Pro
   const [adding, setAdding] = useState(false);
   const [toDelete, setToDelete] = useState<Requirement | null>(null);
   const [busy, setBusy] = useState(false);
+  const [importOpen, setImportOpen] = useState(false);
 
   const meetingTitle = useMemo(() => new Map((meetings ?? []).map((m) => [m.id, m.title])), [meetings]);
   const meetingDate = useMemo(() => new Map((meetings ?? []).map((m) => [m.id, m.meetingDate])), [meetings]);
@@ -172,10 +174,7 @@ export default function ExtractedRequirementsTab({ project, onOpenMeeting }: Pro
             <h2 id="backlog-heading" className="text-headline-md">Project backlog <span className="text-body-lg font-normal text-on-surface-variant">({backlog.length})</span></h2>
             <p className="max-w-2xl text-body-md text-on-surface-variant">Committed requirements. Open one to refine it, map it to functionalities and move it through review.</p>
           </div>
-          <button type="button" className="btn btn-secondary" onClick={() => setAdding(true)}>
-            <Plus size={16} aria-hidden />
-            Add requirement
-          </button>
+          <div className="flex gap-2"><button type="button" className="btn btn-secondary" onClick={() => setImportOpen(true)}>Import with AI</button><button type="button" className="btn btn-secondary" onClick={() => setAdding(true)}><Plus size={16} aria-hidden />Add requirement</button></div>
         </div>
 
         {backlog.length === 0 ? (
@@ -200,6 +199,8 @@ export default function ExtractedRequirementsTab({ project, onOpenMeeting }: Pro
           </>
         )}
       </section>
+
+      <RequirementImportModal open={importOpen} project={project} onClose={() => setImportOpen(false)} onImported={() => setImportOpen(false)} />
 
       <QuickCreateModal
         open={adding}

@@ -38,6 +38,14 @@ export interface AppModule extends BaseEntity {
   owner: string;
 }
 
+export interface ScreenUiElement {
+  name: string;
+  type: 'field' | 'input' | 'button' | 'link' | 'table' | 'other';
+  description: string;
+  action: string;
+  required: boolean;
+}
+
 export interface Screen extends BaseEntity {
   applicationId: ID;
   moduleId?: ID;
@@ -49,6 +57,8 @@ export interface Screen extends BaseEntity {
   functionalOwner: string;
   navigationPath: string;
   fieldDescriptions: Array<{ field: string; description: string }>;
+  /** UI controls detected from screenshots/documents; editable after AI extraction. */
+  uiElements: ScreenUiElement[];
   validationRules: string[];
   workflowSteps: string[];
   approvalLogic: string;

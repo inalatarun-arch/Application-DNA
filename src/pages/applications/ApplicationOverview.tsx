@@ -10,6 +10,7 @@ import ConfirmModal from '@/components/ui/ConfirmModal';
 import QuickCreateModal from '@/components/ui/QuickCreateModal';
 import { useAppContext } from './appContext';
 import ApplicationFormModal from './ApplicationFormModal';
+import ApplicationAiIngest from './ApplicationAiIngest';
 
 function Meta({ label, children }: { label: string; children: React.ReactNode }) {
   return (
@@ -62,6 +63,8 @@ export default function ApplicationOverview() {
           </button>
         </div>
       </header>
+
+      <ApplicationAiIngest applicationId={app.id} />
 
       <section className="card" aria-label="Application details">
         {app.description && <p className="mb-4 text-body-lg">{app.description}</p>}
