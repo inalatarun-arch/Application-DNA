@@ -29,7 +29,8 @@ const SCHEMA = { type: 'OBJECT', properties: {
 
 export async function extractScreenFromFiles(screen: Screen, attachments: GeminiContent[], signal?: AbortSignal): Promise<{ data: ScreenExtraction; model: string }> {
   const prompt: GeminiContent[] = [
-    { role:'user', parts:[{text:`Existing screen context:\n${JSON.stringify({name:screen.name,purpose:screen.purpose,description:screen.description,businessProcess:screen.businessProcess,navigationPath:screen.navigationPath,fieldDescriptions:screen.fieldDescriptions,uiElements:screen.uiElements ?? []})`}]},
+    { role:'user', parts:[{text:`Existing screen context:
+${JSON.stringify({name:screen.name,purpose:screen.purpose,description:screen.description,businessProcess:screen.businessProcess,navigationPath:screen.navigationPath,fieldDescriptions:screen.fieldDescriptions,uiElements:screen.uiElements ?? []})`}]},
     ...attachments,
     { role:'user', parts:[{text:'Analyse the screenshot/file(s). Extract visible fields, inputs, buttons, links, tables, labels, validations and workflow clues. Do not invent details. Return JSON only. The extracted UI elements will be editable by the user.'}]},
   ];
