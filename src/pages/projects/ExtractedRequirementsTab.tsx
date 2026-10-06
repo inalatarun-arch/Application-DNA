@@ -173,10 +173,7 @@ export default function ExtractedRequirementsTab({ project, onOpenMeeting }: Pro
             <h2 id="backlog-heading" className="text-headline-md">Project backlog <span className="text-body-lg font-normal text-on-surface-variant">({backlog.length})</span></h2>
             <p className="max-w-2xl text-body-md text-on-surface-variant">Committed requirements. Open one to refine it, map it to functionalities and move it through review.</p>
           </div>
-          <button type="button" className="btn btn-secondary" onClick={() => setAdding(true)}>
-            <Plus size={16} aria-hidden />
-            Add requirement
-          </button>
+          <div className="flex gap-2"><button type="button" className="btn btn-secondary" onClick={() => setImportOpen(true)}>Import with AI</button><button type="button" className="btn btn-secondary" onClick={() => setAdding(true)}><Plus size={16} aria-hidden />Add requirement</button></div>
         </div>
 
         {backlog.length === 0 ? (
