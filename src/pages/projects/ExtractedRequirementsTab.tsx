@@ -49,7 +49,8 @@ export default function ExtractedRequirementsTab({ project, onOpenMeeting }: Pro
   const [message, setMessage] = useState('');
   const [adding, setAdding] = useState(false);
   const [toDelete, setToDelete] = useState<Requirement | null>(null);
-  const [busy, setBusy] = useState(false);\n  const [importOpen, setImportOpen] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [importOpen, setImportOpen] = useState(false);
 
   const meetingTitle = useMemo(() => new Map((meetings ?? []).map((m) => [m.id, m.title])), [meetings]);
   const meetingDate = useMemo(() => new Map((meetings ?? []).map((m) => [m.id, m.meetingDate])), [meetings]);
