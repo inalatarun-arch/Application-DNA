@@ -15,13 +15,19 @@ export interface MediaRef {
 
 // ---------- Domain 1: Application Knowledge Repository ----------
 
+export type CriticalTier = 'tier-1' | 'tier-2' | 'tier-3' | 'tier-4';
+
 export interface Application extends BaseEntity {
   name: string;
-  /** e.g. Salesforce, Oracle E-Business Suite, SAP, ServiceNow, Workday, Custom */
+  /** Platform, e.g. Salesforce, Oracle E-Business Suite, SAP, ServiceNow, Workday, Custom */
   vendor: string;
+  /** Business domain, e.g. Finance, Procurement, HR */
+  domain: string;
+  technicalStack: string[];
+  criticalTier: CriticalTier;
   description: string;
-  businessOwner?: string;
-  technicalOwner?: string;
+  businessOwner: string;
+  technicalOwner: string;
   tags: string[];
 }
 
@@ -29,6 +35,7 @@ export interface AppModule extends BaseEntity {
   applicationId: ID;
   name: string;
   description: string;
+  owner: string;
 }
 
 export interface Screen extends BaseEntity {
@@ -37,19 +44,30 @@ export interface Screen extends BaseEntity {
   name: string;
   purpose: string;
   description: string;
-  businessProcess?: string;
-  businessOwner?: string;
-  functionalOwner?: string;
-  navigationPath?: string;
+  businessProcess: string;
+  businessOwner: string;
+  functionalOwner: string;
+  navigationPath: string;
   fieldDescriptions: Array<{ field: string; description: string }>;
   validationRules: string[];
   workflowSteps: string[];
-  approvalLogic?: string;
-  exceptionHandling?: string;
+  approvalLogic: string;
+  exceptionHandling: string[];
   upstreamSystems: string[];
   downstreamSystems: string[];
   relatedScreenIds: ID[];
-  media: MediaRef[];
+}
+
+/** Screenshots and wireframes. Stored as data URLs so JSON backups stay self-contained. */
+export interface ScreenMedia extends BaseEntity {
+  screenId: ID;
+  applicationId: ID;
+  kind: 'screenshot' | 'wireframe';
+  name: string;
+  caption: string;
+  mimeType: string;
+  sizeBytes: number;
+  dataUrl: string;
 }
 
 export interface Functionality extends BaseEntity {
@@ -58,8 +76,8 @@ export interface Functionality extends BaseEntity {
   screenId?: ID;
   name: string;
   description: string;
-  businessPurpose?: string;
-  processFlow?: string; // Mermaid source
+  businessPurpose: string;
+  processFlow: string; // Mermaid source
   userRoles: string[];
   triggers: string[];
   inputs: string[];
@@ -71,7 +89,8 @@ export interface Functionality extends BaseEntity {
     system: string[];
   };
   relatedFunctionalityIds: ID[];
-  externalSystems: string[];
+  upstreamSystems: string[];
+  downstreamSystems: string[];
 }
 
 export type TechnicalComponentKind =

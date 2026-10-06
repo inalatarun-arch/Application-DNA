@@ -1,26 +1,30 @@
 import { Route, Routes } from 'react-router-dom';
-import { Blocks, FileText, FlaskConical, FolderKanban, MessageSquareText, Network } from 'lucide-react';
+import { FileText, FlaskConical, FolderKanban, MessageSquareText, Network } from 'lucide-react';
 import AppShell from '@/components/layout/AppShell';
 import DashboardPage from '@/pages/DashboardPage';
 import SettingsPage from '@/pages/SettingsPage';
 import ModulePage from '@/pages/ModulePage';
+import ApplicationsPage from '@/pages/applications/ApplicationsPage';
+import CatalogSearchPage from '@/pages/applications/CatalogSearchPage';
+import ApplicationWorkspace from '@/pages/applications/ApplicationWorkspace';
+import ApplicationOverview from '@/pages/applications/ApplicationOverview';
+import ModuleDetailPage from '@/pages/applications/ModuleDetailPage';
+import ScreenWorkspace from '@/pages/applications/ScreenWorkspace';
 
 export default function App() {
   return (
     <Routes>
       <Route element={<AppShell />}>
         <Route index element={<DashboardPage />} />
-        <Route
-          path="applications"
-          element={
-            <ModulePage
-              title="Applications"
-              description="Document applications with their modules, screens, functionalities and technical components."
-              icon={Blocks}
-              planned={['Application, module, screen and functionality editors', 'Technical components linked to functionality', 'Free-form notes and document upload structured by AI']}
-            />
-          }
-        />
+        <Route path="applications">
+          <Route index element={<ApplicationsPage />} />
+          <Route path="catalog" element={<CatalogSearchPage />} />
+          <Route path=":appId" element={<ApplicationWorkspace />}>
+            <Route index element={<ApplicationOverview />} />
+            <Route path="modules/:moduleId" element={<ModuleDetailPage />} />
+            <Route path="screens/:screenId" element={<ScreenWorkspace />} />
+          </Route>
+        </Route>
         <Route
           path="knowledge-graph"
           element={

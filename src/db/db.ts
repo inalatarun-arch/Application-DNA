@@ -8,18 +8,20 @@ import type {
   Project,
   Requirement,
   Screen,
+  ScreenMedia,
   SettingRecord,
   TechnicalComponent,
   TestCase,
 } from './types';
 
 /** Bump together with a new `this.version(n)` block when the schema changes. */
-export const DB_SCHEMA_VERSION = 1;
+export const DB_SCHEMA_VERSION = 2;
 
 export class EihDatabase extends Dexie {
   applications!: Table<Application, string>;
   modules!: Table<AppModule, string>;
   screens!: Table<Screen, string>;
+  screenMedia!: Table<ScreenMedia, string>;
   functionalities!: Table<Functionality, string>;
   technicalComponents!: Table<TechnicalComponent, string>;
   projects!: Table<Project, string>;
@@ -44,6 +46,10 @@ export class EihDatabase extends Dexie {
       testCases: 'id, projectId, level, status, *requirementIds',
       defects: 'id, projectId, severity, status, testCaseId, requirementId',
       settings: 'key',
+    });
+    // v2: screenshots/wireframes live in their own table so editing a screen never rewrites image data.
+    this.version(2).stores({
+      screenMedia: 'id, screenId, applicationId',
     });
   }
 }

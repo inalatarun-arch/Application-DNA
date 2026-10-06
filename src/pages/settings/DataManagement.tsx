@@ -19,6 +19,7 @@ const TABLE_LABELS: Record<string, string> = {
   applications: 'Applications',
   modules: 'Modules',
   screens: 'Screens',
+  screenMedia: 'Screen images',
   functionalities: 'Functionalities',
   technicalComponents: 'Technical components',
   projects: 'Projects',
