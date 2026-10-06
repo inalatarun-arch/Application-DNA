@@ -426,6 +426,37 @@ export async function streamText(
   return { text: full, model, latencyMs, finishReason, usage };
 }
 
+export interface GeminiModelInfo {
+  id: string;
+  displayName: string;
+  description?: string;
+  version?: string;
+  inputTokenLimit?: number;
+  outputTokenLimit?: number;
+}
+
+/** Returns the Gemini models currently exposed to this API key that support generateContent. */
+export async function listAvailableModels(apiKeyOverride?: string): Promise<GeminiModelInfo[]> {
+  const key = requireKey(apiKeyOverride);
+  const models: GeminiModelInfo[] = [];
+  let pageToken = '';
+  do {
+    const query = new URLSearchParams({ pageSize: '1000' });
+    if (pageToken) query.set('pageToken', pageToken);
+    const data = await requestJson<{ models?: Array<{ name?: string; displayName?: string; description?: string; version?: string; inputTokenLimit?: number; outputTokenLimit?: number; supportedGenerationMethods?: string[] }>; nextPageToken?: string }>(
+      `${API_BASE}/models?${query.toString()}`,
+      { method: 'GET', headers: headers(key) },
+      { timeoutMs: 15_000, retries: 1 },
+    );
+    for (const model of data.models ?? []) {
+      const id = (model.name ?? '').replace(/^models\//, '');
+      if (!id.startsWith('gemini-') || !(model.supportedGenerationMethods ?? []).includes('generateContent')) continue;
+      models.push({ id, displayName: model.displayName || id, description: model.description, version: model.version, inputTokenLimit: model.inputTokenLimit, outputTokenLimit: model.outputTokenLimit });
+    }
+    pageToken = data.nextPageToken ?? '';
+  } while (pageToken);
+  return models.sort((a, b) => a.displayName.localeCompare(b.displayName) || a.id.localeCompare(b.id));
+}
 // ---------------------------------------------------------------- connection test
 
 export interface ConnectionTestResult {
