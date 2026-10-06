@@ -225,6 +225,8 @@ export interface Defect extends BaseEntity {
   assignedTo?: string;
   requirementId?: ID;
   testCaseId?: ID;
+  /** Technical components implicated by the defect. */
+  technicalComponentIds: ID[];
   screenshots: MediaRef[];
   aiAnalysis?: string;
 }
