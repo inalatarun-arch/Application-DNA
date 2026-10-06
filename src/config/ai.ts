@@ -16,7 +16,12 @@ export const AI_FEATURES: Array<{ id: AiFeature; label: string; description: str
   { id: 'tdd', label: 'TDD generation', description: 'Technical Design Documents' },
   { id: 'testcases', label: 'Test case generation', description: 'Unit, SIT, regression and UAT cases' },
   { id: 'defects', label: 'Defect analysis', description: 'Root cause and similar-defect suggestions' },
-  { id: 'copilot', label: 'Copilot', description: 'Natural-language search across the repository' },\n  { id: 'application-ingestion', label: 'Application ingestion', description: 'Build and update application knowledge from text and files' },\n  { id: 'screen-extraction', label: 'Screen extraction', description: 'Extract screen controls and business clues from screenshots' },\n  { id: 'requirement-import', label: 'Requirement import', description: 'Extract project requirements from uploaded files' },\n  { id: 'project-flow', label: 'Project process flow', description: 'Generate future-state flows from requirements' },\n  { id: 'knowledge-flow', label: 'Knowledge graph flow', description: 'Generate Mermaid flows from application evidence' },
+  { id: 'copilot', label: 'Copilot', description: 'Natural-language search across the repository' },
+  { id: 'application-ingestion', label: 'Application ingestion', description: 'Build and update application knowledge from text and files' },
+  { id: 'screen-extraction', label: 'Screen extraction', description: 'Extract screen controls and business clues from screenshots' },
+  { id: 'requirement-import', label: 'Requirement import', description: 'Extract project requirements from uploaded files' },
+  { id: 'project-flow', label: 'Project process flow', description: 'Generate future-state flows from requirements' },
+  { id: 'knowledge-flow', label: 'Knowledge graph flow', description: 'Generate Mermaid flows from application evidence' },
 ];
 
 export interface AiSettings {
