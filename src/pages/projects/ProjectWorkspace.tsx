@@ -16,8 +16,9 @@ import MeetingNotesTab from './MeetingNotesTab';
 import ExtractedRequirementsTab from './ExtractedRequirementsTab';
 import ImpactTab from './ImpactTab';
 import DeliverablesTab from './DeliverablesTab';
+import ProjectFlowTab from './ProjectFlowTab';
 
-const TAB_IDS = ['overview', 'notes', 'requirements', 'impact', 'deliverables'] as const;
+const TAB_IDS = ['overview', 'notes', 'requirements', 'impact', 'flow', 'deliverables'] as const;
 type TabId = (typeof TAB_IDS)[number];
 
 export default function ProjectWorkspace() {
@@ -104,7 +105,7 @@ function ProjectEditor({ project }: { project: Project }) {
           { id: 'overview', label: 'Overview' },
           { id: 'notes', label: 'Meeting notes', count: counts?.meetings },
           { id: 'requirements', label: 'Extracted requirements', count: counts?.review ? counts.review : counts?.requirements },
-          { id: 'impact', label: 'Impact analysis' },
+          { id: 'impact', label: 'Impact analysis' },\n          { id: 'flow', label: 'Future-state flow' },
           { id: 'deliverables', label: 'Deliverables' },
         ]}
       />
@@ -113,7 +114,7 @@ function ProjectEditor({ project }: { project: Project }) {
         {tab === 'overview' && <OverviewTab project={draft} update={update} />}
         {tab === 'notes' && <MeetingNotesTab project={draft} onReview={() => selectTab('requirements')} />}
         {tab === 'requirements' && <ExtractedRequirementsTab project={draft} onOpenMeeting={(id) => selectTab('notes', { meeting: id })} />}
-        {tab === 'impact' && <ImpactTab project={draft} />}
+        {tab === 'impact' && <ImpactTab project={draft} />}\n        {tab === 'flow' && <ProjectFlowTab project={draft} />}
         {tab === 'deliverables' && <DeliverablesTab project={draft} />}
       </div>
 
