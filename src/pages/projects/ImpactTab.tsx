@@ -264,7 +264,7 @@ export default function ImpactTab({ project }: { project: Project }) {
                     {rows.map((r, i) => (
                       <li key={i} className="flex items-start gap-3 px-3 py-2">
                         <span className="mt-0.5 shrink-0"><StatusBadge status={r.severity} label={r.severity === 'high' ? 'High' : r.severity === 'low' ? 'Low' : 'Medium'} /></span>
-                        <span className="min-w-0"><span className="block font-medium">{r.area}</span><span className="block text-body-md text-on-surface-variant">{r.description}</span></span>
+                        <span className="min-w-0"><span className="block font-medium">{r.area}</span><span className="block text-body-md text-on-surface-variant">{r.description}</span>{r.impactedPart && <span className="mt-1 block text-body-md"><strong>Impacted part:</strong> {r.impactedPart}</span>}{r.currentState && <span className="block text-body-md text-on-surface-variant"><strong>Current:</strong> {r.currentState}</span>}{r.proposedChange && <span className="block text-body-md text-on-surface-variant"><strong>Change:</strong> {r.proposedChange}</span>}{r.rationale && <span className="block text-body-md text-on-surface-variant"><strong>Why:</strong> {r.rationale}</span>}</span>
                       </li>
                     ))}
                   </ul>
