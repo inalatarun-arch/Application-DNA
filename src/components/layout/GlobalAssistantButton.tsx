@@ -1,0 +1,2 @@
+import { MessageSquareText } from 'lucide-react';
+export default function GlobalAssistantButton({onClick}:{onClick:()=>void}){return <button type="button" onClick={onClick} aria-label="Open Enterprise Copilot" title="Enterprise Copilot (Ctrl/Cmd + K)" className="fixed bottom-5 right-5 z-40 flex h-12 w-12 items-center justify-center rounded-full border border-outline-variant bg-primary text-on-primary shadow-lg hover:opacity-90"><MessageSquareText size={20}/></button>}
