@@ -4,6 +4,7 @@ import type { Screen } from '@/db/types';
 import Section from '@/components/ui/Section';
 import TagInput from '@/components/ui/TagInput';
 import RelatedPicker from '@/components/ui/RelatedPicker';
+import UiElementsEditor from '@/components/ui/UiElementsEditor';
 
 interface Props {
   screen: Screen;
@@ -59,7 +60,7 @@ export default function ScreenOverviewTab({ screen, update }: Props) {
         </div>
       </Section>
 
-      <Section title="Dependencies" description="Systems and screens this screen depends on or feeds.">
+      <Section title="Detected UI elements" description="Fields, inputs, buttons, links and tables detected from screenshots or documents. Review and add more detail as needed.">\n        <UiElementsEditor items={screen.uiElements ?? []} onChange={(uiElements) => update({ uiElements })} />\n      </Section>\n\n      <Section title="Dependencies" description="Systems and screens this screen depends on or feeds.">
         <div className="grid gap-4 md:grid-cols-2">
           <div>
             <label htmlFor="s-up" className="field-label">Upstream systems</label>
