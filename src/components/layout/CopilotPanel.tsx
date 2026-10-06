@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Bot, ChevronRight, Loader2, Send, X } from 'lucide-react';
+import { Bot, Loader2, Send, X } from 'lucide-react';
 import { db } from '@/db/db';
 import { generateText, describeError } from '@/services/geminiService';
 
