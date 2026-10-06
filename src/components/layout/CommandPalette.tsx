@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { AppWindow, Boxes, ListChecks, Search, type LucideIcon } from 'lucide-react';
+import { AppWindow, Boxes, Bug, ClipboardList, Database, FolderKanban, ListChecks, Search, type LucideIcon } from 'lucide-react';
 import { NAV_ITEMS } from '@/config/nav';
-import { loadCatalogData, searchCatalog, type CatalogData } from '@/lib/catalogSearch';
+import { searchAllEntities, type SearchHit } from '@/config/universalSearch';
 import { cn } from '@/lib/cn';
 
 interface Props {
@@ -24,7 +24,7 @@ export default function CommandPalette({ open, onClose }: Props) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [query, setQuery] = useState('');
   const [index, setIndex] = useState(0);
-  const [catalog, setCatalog] = useState<CatalogData | null>(null);
+  const [content, setContent] = useState<SearchHit[]>([]);
   const q = query.trim();
 
   useEffect(() => {
@@ -32,7 +32,7 @@ export default function CommandPalette({ open, onClose }: Props) {
     setQuery('');
     setIndex(0);
     let cancelled = false;
-    void loadCatalogData().then((d) => !cancelled && setCatalog(d));
+    setContent([]);
     requestAnimationFrame(() => inputRef.current?.focus());
     return () => {
       cancelled = true;
@@ -53,20 +53,24 @@ export default function CommandPalette({ open, onClose }: Props) {
     [q],
   );
 
-  const content = useMemo<Item[]>(() => {
-    if (!catalog || q.length < 2) return [];
-    return searchCatalog(catalog, { query: q, limit: 8 }).map((h) => ({
-      key: `${h.kind}-${h.id}`,
-      label: h.name || 'Untitled',
-      sublabel: h.matchedIn ? `${h.path} · matched in ${h.matchedIn.toLowerCase()}` : h.path,
-      to: h.to,
-      icon: h.kind === 'screen' ? AppWindow : h.kind === 'functionality' ? ListChecks : Boxes,
-    }));
-  }, [catalog, q]);
+  useEffect(() => {
+    if (q.length < 2) { setContent([]); return; }
+    let cancelled = false;
+    void searchAllEntities(q, 12).then((hits) => { if (!cancelled) setContent(hits); });
+    return () => { cancelled = true; };
+  }, [q]);
+
+  const contentItems: Item[] = content.map((h) => ({
+    key: h.kind + '-' + h.id,
+    label: h.name,
+    sublabel: h.kind.replace('-', ' ') + ' · ' + h.description,
+    to: h.to,
+    icon: h.kind === 'screen' ? AppWindow : h.kind === 'functionality' ? ListChecks : h.kind === 'api' ? Database : h.kind === 'story' ? FolderKanban : h.kind === 'test-case' ? ClipboardList : h.kind === 'defect' ? Bug : Boxes,
+  }));
 
   if (!open) return null;
 
-  const flat = [...pages, ...content];
+  const flat = [...pages, ...contentItems];
   const go = (to: string) => {
     navigate(to);
     onClose();
@@ -124,10 +128,10 @@ export default function CommandPalette({ open, onClose }: Props) {
               <ul role="listbox" aria-label="Pages">{pages.map((item, i) => row(item, i))}</ul>
             </>
           )}
-          {content.length > 0 && (
+          {contentItems.length > 0 && (
             <>
-              <p className="px-3 pb-1 pt-2 text-label-md text-on-surface-variant">Catalog</p>
-              <ul role="listbox" aria-label="Catalog results">{content.map((item, i) => row(item, pages.length + i))}</ul>
+              <p className="px-3 pb-1 pt-2 text-label-md text-on-surface-variant">All entities</p>
+              <ul role="listbox" aria-label="Catalog results">{contentItems.map((item, i) => row(item, pages.length + i))}</ul>
             </>
           )}
         </div>
