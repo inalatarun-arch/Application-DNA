@@ -31,12 +31,9 @@ export default function CommandPalette({ open, onClose }: Props) {
     if (!open) return;
     setQuery('');
     setIndex(0);
-    let cancelled = false;
     setContent([]);
     requestAnimationFrame(() => inputRef.current?.focus());
-    return () => {
-      cancelled = true;
-    };
+    return undefined;
   }, [open]);
 
   useEffect(() => setIndex(0), [query]);
