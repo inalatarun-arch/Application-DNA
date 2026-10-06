@@ -26,7 +26,7 @@ export function DocumentStudio({ projectId }: { projectId: number | null }) {
   const [matrix, setMatrix] = useState<ApprovalStage[]>(loadMatrix());
   const [showMatrix, setShowMatrix] = useState(false);
 
-  const project = useLive(() => (projectId ? db.projects.get(projectId) : Promise.resolve(undefined)), [projectId], undefined as Project | undefined);
+  const project = useLive<Project | undefined>(() => (projectId ? db.projects.get(projectId) : Promise.resolve(undefined)), [projectId], undefined);
   const docs = useLive(() => (projectId ? db.documents.where('projectId').equals(projectId).toArray() : Promise.resolve([] as DocumentRecord[])), [projectId], [] as DocumentRecord[]);
   const doc = docs.find((d) => d.type === docType);
   const frdDoc = docs.find((d) => d.type === 'FRD');
