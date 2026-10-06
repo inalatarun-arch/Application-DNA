@@ -1,5 +1,5 @@
 import { Route, Routes } from 'react-router-dom';
-import { FileText, FlaskConical, MessageSquareText } from 'lucide-react';
+import { FileText } from 'lucide-react';
 import AppShell from '@/components/layout/AppShell';
 import DashboardPage from '@/pages/DashboardPage';
 import SettingsPage from '@/pages/SettingsPage';
@@ -16,6 +16,8 @@ import KnowledgeGraphPage from '@/pages/graph/KnowledgeGraphPage';
 import ProcessFlowsPage from '@/pages/graph/ProcessFlowsPage';
 import ProjectsPage from '@/pages/projects/ProjectsPage';
 import ProjectWorkspace from '@/pages/projects/ProjectWorkspace';
+import TestingPage from '@/pages/TestingPage';
+import CopilotPage from '@/pages/CopilotPage';
 
 export default function App() {
   return (
@@ -52,28 +54,8 @@ export default function App() {
             />
           }
         />
-        <Route
-          path="testing"
-          element={
-            <ModulePage
-              title="Testing & RTM"
-              description="Test cases, end-to-end traceability and defect management."
-              icon={FlaskConical}
-              planned={['Unit, SIT, regression and UAT test case generation', 'Requirements Traceability Matrix', 'Defect logging with AI-assisted analysis']}
-            />
-          }
-        />
-        <Route
-          path="copilot"
-          element={
-            <ModulePage
-              title="Copilot"
-              description="Ask questions in plain language, answered strictly from your documented repository."
-              icon={MessageSquareText}
-              planned={['Natural-language queries across applications, requirements and tests', 'Answers grounded in repository context only']}
-            />
-          }
-        />
+        <Route path="testing" element={<TestingPage />} />
+        <Route path="copilot" element={<CopilotPage />} />
         <Route path="settings" element={<SettingsPage />} />
         <Route
           path="*"
