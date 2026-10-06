@@ -163,4 +163,3 @@ ${PREVIEW_CSS}
   setTimeout(() => { w.focus(); w.print(); setTimeout(() => iframe.remove(), 2000); }, 400);
 }
 
-export function saveText(filename: string, content: string, mime = 'text/markdown'): void { downloadText(filename, content, mime); }
