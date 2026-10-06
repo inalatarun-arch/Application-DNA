@@ -4,13 +4,8 @@ export interface GeminiModelOption {
   hint: string;
 }
 
-export const GEMINI_MODELS: GeminiModelOption[] = [
-  { id: 'gemini-2.5-flash', label: 'Gemini 2.5 Flash', hint: 'Fast and economical. Best for real-time tasks.' },
-  { id: 'gemini-2.5-pro', label: 'Gemini 2.5 Pro', hint: 'Deeper reasoning. Best for FRD, TDD and impact analysis.' },
-  { id: 'gemini-2.5-flash-lite', label: 'Gemini 2.5 Flash-Lite', hint: 'Lowest cost and latency. Best for simple, high-volume calls.' },
-];
-
-export const DEFAULT_MODEL = 'gemini-2.5-flash';
+/** Google-maintained alias that follows the current Flash release. */
+export const DEFAULT_MODEL = 'gemini-flash-latest';
 
 export type AiFeature = 'transcript' | 'impact' | 'frd' | 'tdd' | 'testcases' | 'defects' | 'copilot';
 
@@ -34,6 +29,6 @@ export interface AiSettings {
 
 export const DEFAULT_AI_SETTINGS: AiSettings = {
   defaultModel: DEFAULT_MODEL,
-  featureModels: { impact: 'gemini-2.5-pro', frd: 'gemini-2.5-pro', tdd: 'gemini-2.5-pro' },
+  featureModels: { impact: DEFAULT_MODEL, frd: DEFAULT_MODEL, tdd: DEFAULT_MODEL },
   temperature: 0.3,
 };
