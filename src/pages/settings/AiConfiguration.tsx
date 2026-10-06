@@ -1,10 +1,10 @@
 import { useEffect, useState } from 'react';
-import { Eye, EyeOff, KeyRound, Loader2, Trash2, Zap } from 'lucide-react';
-import { AI_FEATURES, GEMINI_MODELS } from '@/config/ai';
+import { Eye, EyeOff, KeyRound, Loader2, RefreshCw, Trash2, Zap } from 'lucide-react';
+import { AI_FEATURES, DEFAULT_MODEL } from '@/config/ai';
 import { useAiSettings } from '@/db/settings';
 import { useApiKey } from '@/hooks/useApiKey';
 import { clearApiKey, setApiKey } from '@/services/apiKeyStore';
-import { testConnection, type ConnectionTestResult } from '@/services/geminiService';
+import { listAvailableModels, testConnection, type ConnectionTestResult, type GeminiModelInfo } from '@/services/geminiService';
 import { cn } from '@/lib/cn';
 
 export default function AiConfiguration() {
@@ -15,6 +15,10 @@ export default function AiConfiguration() {
   const [testing, setTesting] = useState(false);
   const [result, setResult] = useState<ConnectionTestResult | null>(null);
   const [savedFlash, setSavedFlash] = useState(false);
+  const [models, setModels] = useState<GeminiModelInfo[]>([]);
+  const [modelsLoading, setModelsLoading] = useState(false);
+  const [modelsError, setModelsError] = useState<string | null>(null);
+  const [modelsUpdatedAt, setModelsUpdatedAt] = useState<number | null>(null);
 
   // Keep the field in sync if the key changes elsewhere (restore, other tab).
   useEffect(() => setDraft(savedKey), [savedKey]);
@@ -44,6 +48,37 @@ export default function AiConfiguration() {
       setTesting(false);
     }
   };
+
+  const refreshModels = async (key = savedKey) => {
+    if (!key.trim()) {
+      setModels([]);
+      setModelsError(null);
+      return;
+    }
+    setModelsLoading(true);
+    setModelsError(null);
+    try {
+      const next = await listAvailableModels(key);
+      setModels(next);
+      setModelsUpdatedAt(Date.now());
+      const available = new Set(next.map((m) => m.id));
+      available.add(DEFAULT_MODEL);
+      const selectedDefault = available.has(ai.defaultModel) ? ai.defaultModel : DEFAULT_MODEL;
+      const nextFeatureModels = Object.fromEntries(
+        Object.entries(ai.featureModels).filter(([, model]) => model && available.has(model)),
+      ) as typeof ai.featureModels;
+      const changed = selectedDefault !== ai.defaultModel || Object.keys(nextFeatureModels).length !== Object.keys(ai.featureModels).length;
+      if (changed) void saveAi({ defaultModel: selectedDefault, featureModels: nextFeatureModels });
+    } catch (e) {
+      setModelsError(e instanceof Error ? e.message : 'Could not load Gemini models.');
+    } finally {
+      setModelsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (savedKey) void refreshModels(savedKey);
+  }, [savedKey]);
 
   const setFeatureModel = (feature: (typeof AI_FEATURES)[number]['id'], model: string) => {
     const next = { ...ai.featureModels };
@@ -136,17 +171,29 @@ export default function AiConfiguration() {
 
       <div className="max-w-xl">
         <label htmlFor="default-model" className="field-label">Default model</label>
-        <select id="default-model" className="input" value={ai.defaultModel} onChange={(e) => void saveAi({ defaultModel: e.target.value })}>
-          {GEMINI_MODELS.map((m) => (
-            <option key={m.id} value={m.id}>{m.label} ({m.id})</option>
-          ))}
-        </select>
-        <p className="field-hint">{GEMINI_MODELS.find((m) => m.id === ai.defaultModel)?.hint}</p>
+        <div className="flex gap-2">
+          <select id="default-model" className="input flex-1" value={ai.defaultModel} onChange={(e) => void saveAi({ defaultModel: e.target.value })} disabled={!savedKey || modelsLoading}>
+            <option value={DEFAULT_MODEL}>Gemini Flash (latest — auto-updating)</option>
+            {models.filter((m) => m.id !== DEFAULT_MODEL).map((m) => (
+              <option key={m.id} value={m.id}>{m.displayName} ({m.id})</option>
+            ))}
+          </select>
+          <button type="button" className="btn btn-secondary" onClick={() => void refreshModels()} disabled={!savedKey || modelsLoading} title="Refresh models from Google">
+            {modelsLoading ? <Loader2 size={16} className="animate-spin" /> : <RefreshCw size={16} />}
+            Refresh
+          </button>
+        </div>
+        <p className="field-hint">
+          {modelsLoading ? 'Loading models available to this API key from Google…' :
+            modelsUpdatedAt ? `Live model list updated ${new Date(modelsUpdatedAt).toLocaleTimeString()}.` :
+            'Save an API key to load the models that key can actually use.'}
+        </p>
+        {modelsError && <p className="field-hint text-error">{modelsError}</p>}
       </div>
 
       <div className="mt-6">
         <h3 className="text-body-lg font-semibold">Model by feature</h3>
-        <p className="text-body-md text-on-surface-variant">Route each AI feature to the model that fits it. Leave on default to follow the model above.</p>
+        <p className="text-body-md text-on-surface-variant">Models are loaded live from Google for your API key. Deprecated or unavailable models are removed automatically. Leave on default to follow the model above.</p>
         <ul className="mt-3 divide-y divide-outline-variant rounded border border-outline-variant">
           {AI_FEATURES.map((f) => (
             <li key={f.id} className="flex flex-wrap items-center justify-between gap-3 p-3">
@@ -161,8 +208,8 @@ export default function AiConfiguration() {
                 onChange={(e) => setFeatureModel(f.id, e.target.value)}
               >
                 <option value="">Default ({ai.defaultModel})</option>
-                {GEMINI_MODELS.map((m) => (
-                  <option key={m.id} value={m.id}>{m.label}</option>
+                {models.filter((m) => m.id !== DEFAULT_MODEL).map((m) => (
+                  <option key={m.id} value={m.id}>{m.displayName}</option>
                 ))}
               </select>
             </li>
