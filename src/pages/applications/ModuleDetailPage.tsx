@@ -31,7 +31,8 @@ function ModuleEditor({ module: initial }: { module: AppModule }) {
   const navigate = useNavigate();
   const { draft, update, state } = useAutosave(db.modules, initial);
   const [confirmDelete, setConfirmDelete] = useState(false);
-  const [newScreen, setNewScreen] = useState(false);\n  const [aiScreen, setAiScreen] = useState(false);
+  const [newScreen, setNewScreen] = useState(false);
+  const [aiScreen, setAiScreen] = useState(false);
 
   const screens = useLiveQuery(() => db.screens.where('moduleId').equals(initial.id).toArray(), [initial.id]);
   const sorted = [...(screens ?? [])].sort((a, b) => a.name.localeCompare(b.name));
@@ -65,7 +66,8 @@ function ModuleEditor({ module: initial }: { module: AppModule }) {
       <section className="card" aria-labelledby="module-screens">
         <div className="mb-4 flex items-center justify-between gap-2">
           <h2 id="module-screens" className="text-headline-md">Screens</h2>
-          <button type="button" className="btn btn-secondary" onClick={() => setAiScreen(true)}><Sparkles size={16} aria-hidden />AI create screen</button>\n          <button type="button" className="btn btn-primary" onClick={() => setNewScreen(true)}>
+          <button type="button" className="btn btn-secondary" onClick={() => setAiScreen(true)}><Sparkles size={16} aria-hidden />AI create screen</button>
+          <button type="button" className="btn btn-primary" onClick={() => setNewScreen(true)}>
             <Plus size={16} aria-hidden />
             Add screen
           </button>
@@ -86,7 +88,9 @@ function ModuleEditor({ module: initial }: { module: AppModule }) {
         )}
       </section>
 
-      <AiScreenCreateModal open={aiScreen} module={initial} onClose={() => setAiScreen(false)} onCreated={(id) => navigate(`${appBase}/screens/${id}`)} />\n\n      <QuickCreateModal
+      <AiScreenCreateModal open={aiScreen} module={initial} onClose={() => setAiScreen(false)} onCreated={(id) => navigate(`${appBase}/screens/${id}`)} />
+
+      <QuickCreateModal
         open={newScreen}
         title={`New screen in ${draft.name || 'module'}`}
         nameLabel="Screen name"
