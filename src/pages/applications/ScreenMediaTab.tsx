@@ -63,7 +63,11 @@ export default function ScreenMediaTab({ screen }: { screen: Screen }) {
   const [busy, setBusy] = useState(false);
   const [errors, setErrors] = useState<string[]>([]);
   const [preview, setPreview] = useState<ScreenMedia | null>(null);
-  const [toDelete, setToDelete] = useState<ScreenMedia | null>(null);\n  const [analyzing, setAnalyzing] = useState(false);\n  const [analysisError, setAnalysisError] = useState('');\n  const [analysisNotice, setAnalysisNotice] = useState('');\n  const apiKey = useApiKey();
+  const [toDelete, setToDelete] = useState<ScreenMedia | null>(null);
+  const [analyzing, setAnalyzing] = useState(false);
+  const [analysisError, setAnalysisError] = useState('');
+  const [analysisNotice, setAnalysisNotice] = useState('');
+  const apiKey = useApiKey();
 
   const addFiles = useCallback(
     async (files: File[]) => {
@@ -140,7 +144,11 @@ export default function ScreenMediaTab({ screen }: { screen: Screen }) {
         <p className="text-label-md font-normal text-on-surface-variant">PNG, JPEG, WebP, GIF or SVG up to 15 MB. Large images are resized to 1920 px.</p>
       </div>
 
-      {analysisNotice && <p role="status" className="rounded border border-outline-variant bg-surface-low p-3 text-body-md">{analysisNotice}</p>}\n      {analysisError && <p role="alert" className="rounded border border-error bg-error-container p-3 text-body-md text-error">{analysisError}</p>}\n      {!apiKey && <p className="field-hint">Configure Gemini in Settings to analyze screenshots with AI.</p>}\n\n      {errors.length > 0 && (
+      {analysisNotice && <p role="status" className="rounded border border-outline-variant bg-surface-low p-3 text-body-md">{analysisNotice}</p>}
+      {analysisError && <p role="alert" className="rounded border border-error bg-error-container p-3 text-body-md text-error">{analysisError}</p>}
+      {!apiKey && <p className="field-hint">Configure Gemini in Settings to analyze screenshots with AI.</p>}
+
+      {errors.length > 0 && (
         <ul role="alert" className="rounded border border-error bg-error-container p-3 text-body-md text-error">
           {errors.map((e) => <li key={e}>{e}</li>)}
         </ul>
