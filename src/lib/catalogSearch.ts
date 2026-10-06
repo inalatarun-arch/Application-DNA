@@ -1,14 +1,16 @@
 import { db } from '@/db/db';
-import type { AppModule, Application, Functionality, Screen } from '@/db/types';
+import type { AppModule, Application, Functionality, Screen, TechnicalComponent } from '@/db/types';
+import { KIND_META } from '@/config/technical';
 
 export interface CatalogData {
   applications: Application[];
   modules: AppModule[];
   screens: Screen[];
   functionalities: Functionality[];
+  technicalComponents: TechnicalComponent[];
 }
 
-export type CatalogKind = 'screen' | 'functionality';
+export type CatalogKind = 'screen' | 'functionality' | 'component';
 
 export interface CatalogHit {
   kind: CatalogKind;
@@ -24,13 +26,14 @@ export interface CatalogHit {
 }
 
 export async function loadCatalogData(): Promise<CatalogData> {
-  const [applications, modules, screens, functionalities] = await Promise.all([
+  const [applications, modules, screens, functionalities, technicalComponents] = await Promise.all([
     db.applications.toArray(),
     db.modules.toArray(),
     db.screens.toArray(),
     db.functionalities.toArray(),
+    db.technicalComponents.toArray(),
   ]);
-  return { applications, modules, screens, functionalities };
+  return { applications, modules, screens, functionalities, technicalComponents };
 }
 
 interface SearchField {
@@ -77,6 +80,17 @@ function functionalityFields(f: Functionality): SearchField[] {
   ];
 }
 
+function componentFields(c: TechnicalComponent): SearchField[] {
+  return [
+    { label: 'Name', text: c.name, weight: 5 },
+    { label: 'Type', text: KIND_META[c.kind].label, weight: 3 },
+    { label: 'Description', text: c.description, weight: 3 },
+    { label: 'Attributes', text: lines(Object.values(c.metadata ?? {})), weight: 2 },
+    { label: 'Columns', text: lines((c.columns ?? []).map((x) => `${x.name} ${x.dataType} ${x.references} ${x.description}`)), weight: 1 },
+    { label: 'Definition', text: c.definition ?? '', weight: 1 },
+  ];
+}
+
 /** Every token must match somewhere (AND). Score favours matches in names over matches in details. */
 function score(fields: SearchField[], tokens: string[]): { score: number; matchedIn?: string } | null {
   if (tokens.length === 0) return { score: 0 };
@@ -117,7 +131,7 @@ export function searchCatalog(data: CatalogData, opts: SearchOptions): CatalogHi
   const pathFor = (applicationId: string, moduleId?: string, screenName?: string) =>
     [apps.get(applicationId)?.name, moduleId ? mods.get(moduleId)?.name : undefined, screenName].filter(Boolean).join(' › ');
 
-  if (kind !== 'functionality') {
+  if (kind === 'all' || kind === 'screen') {
     for (const s of data.screens) {
       if (opts.applicationId && s.applicationId !== opts.applicationId) continue;
       const result = score(screenFields(s), tokens);
@@ -136,7 +150,7 @@ export function searchCatalog(data: CatalogData, opts: SearchOptions): CatalogHi
     }
   }
 
-  if (kind !== 'screen') {
+  if (kind === 'all' || kind === 'functionality') {
     for (const f of data.functionalities) {
       if (opts.applicationId && f.applicationId !== opts.applicationId) continue;
       if (!f.screenId) continue;
@@ -153,6 +167,25 @@ export function searchCatalog(data: CatalogData, opts: SearchOptions): CatalogHi
         matchedIn: result.matchedIn,
         score: result.score,
         to: `/applications/${f.applicationId}/screens/${f.screenId}?tab=functionalities&open=${f.id}`,
+      });
+    }
+  }
+
+  if (kind === 'all' || kind === 'component') {
+    for (const c of data.technicalComponents) {
+      if (opts.applicationId && c.applicationId !== opts.applicationId) continue;
+      const result = score(componentFields(c), tokens);
+      if (!result) continue;
+      hits.push({
+        kind: 'component',
+        id: c.id,
+        name: c.name,
+        applicationId: c.applicationId,
+        applicationName: apps.get(c.applicationId)?.name ?? 'Unknown application',
+        path: `${apps.get(c.applicationId)?.name ?? 'Unknown application'} › ${KIND_META[c.kind].label}`,
+        matchedIn: result.matchedIn,
+        score: result.score,
+        to: `/applications/${c.applicationId}/technical/${c.id}`,
       });
     }
   }

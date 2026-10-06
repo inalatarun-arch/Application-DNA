@@ -1,6 +1,6 @@
 /** Create / update / delete operations for the Application Knowledge Repository, including cascades. */
 import { db, newId, nowIso } from './db';
-import type { AppModule, Application, BaseEntity, CriticalTier, Functionality, Screen } from './types';
+import type { AppModule, Application, BaseEntity, CriticalTier, Functionality, Screen, TechnicalComponent, TechnicalComponentKind } from './types';
 
 export const CRITICAL_TIERS: Array<{ id: CriticalTier; label: string; description: string }> = [
   { id: 'tier-1', label: 'Tier 1', description: 'Mission critical' },
@@ -106,11 +106,19 @@ export async function deleteApplication(id: string): Promise<void> {
     'rw',
     [db.applications, db.modules, db.screens, db.screenMedia, db.functionalities, db.technicalComponents, db.projects],
     async () => {
+      const screenIds = await db.screens.where('applicationId').equals(id).primaryKeys();
+      const functionalityIds = await db.functionalities.where('applicationId').equals(id).primaryKeys();
+      const componentIds = await db.technicalComponents.where('applicationId').equals(id).primaryKeys();
+
+      // Components in other applications may point at things being deleted here.
+      await detachFromComponents(screenIds, functionalityIds);
+      await detachComponentRefs(componentIds);
+      await db.technicalComponents.bulkDelete(componentIds);
+
       await db.functionalities.where('applicationId').equals(id).delete();
       await db.screenMedia.where('applicationId').equals(id).delete();
       await db.screens.where('applicationId').equals(id).delete();
       await db.modules.where('applicationId').equals(id).delete();
-      await db.technicalComponents.where('applicationId').equals(id).delete();
       await db.projects
         .where('applicationIds')
         .equals(id)
@@ -122,6 +130,36 @@ export async function deleteApplication(id: string): Promise<void> {
   );
 }
 
+/** Removes deleted screens/functionalities from every technical component that referenced them. */
+async function detachFromComponents(screenIds: string[], functionalityIds: string[]): Promise<void> {
+  if (screenIds.length) {
+    await db.technicalComponents
+      .where('screenIds')
+      .anyOf(screenIds)
+      .modify((c) => {
+        c.screenIds = (c.screenIds ?? []).filter((x) => !screenIds.includes(x));
+      });
+  }
+  if (functionalityIds.length) {
+    await db.technicalComponents
+      .where('functionalityIds')
+      .anyOf(functionalityIds)
+      .modify((c) => {
+        c.functionalityIds = (c.functionalityIds ?? []).filter((x) => !functionalityIds.includes(x));
+      });
+  }
+}
+
+/** Removes deleted components from the "depends on" lists of the remaining components. */
+async function detachComponentRefs(componentIds: string[]): Promise<void> {
+  if (componentIds.length === 0) return;
+  await db.technicalComponents
+    .filter((c) => (c.relatedComponentIds ?? []).some((r) => componentIds.includes(r)))
+    .modify((c) => {
+      c.relatedComponentIds = c.relatedComponentIds.filter((r) => !componentIds.includes(r));
+    });
+}
+
 // ------------------------------------------------------------------ modules
 
 export async function createModule(applicationId: string, name: string, description = ''): Promise<AppModule> {
@@ -131,10 +169,12 @@ export async function createModule(applicationId: string, name: string, descript
 }
 
 export async function deleteModule(id: string): Promise<void> {
-  await db.transaction('rw', [db.modules, db.screens, db.screenMedia, db.functionalities], async () => {
+  await db.transaction('rw', [db.modules, db.screens, db.screenMedia, db.functionalities, db.technicalComponents], async () => {
     const screenIds = await db.screens.where('moduleId').equals(id).primaryKeys();
     if (screenIds.length) {
-      await db.functionalities.where('screenId').anyOf(screenIds).delete();
+      const functionalityIds = await db.functionalities.where('screenId').anyOf(screenIds).primaryKeys();
+      await detachFromComponents(screenIds, functionalityIds);
+      await db.functionalities.bulkDelete(functionalityIds);
       await db.screenMedia.where('screenId').anyOf(screenIds).delete();
       await db.screens.bulkDelete(screenIds);
     }
@@ -170,8 +210,10 @@ export async function createScreen(applicationId: string, moduleId: string | und
 }
 
 export async function deleteScreen(id: string): Promise<void> {
-  await db.transaction('rw', [db.screens, db.screenMedia, db.functionalities], async () => {
-    await db.functionalities.where('screenId').equals(id).delete();
+  await db.transaction('rw', [db.screens, db.screenMedia, db.functionalities, db.technicalComponents], async () => {
+    const functionalityIds = await db.functionalities.where('screenId').equals(id).primaryKeys();
+    await detachFromComponents([id], functionalityIds);
+    await db.functionalities.bulkDelete(functionalityIds);
     await db.screenMedia.where('screenId').equals(id).delete();
     await db.screens.delete(id);
   });
@@ -207,5 +249,63 @@ export async function createFunctionality(
 }
 
 export async function deleteFunctionality(id: string): Promise<void> {
-  await db.functionalities.delete(id);
+  await db.transaction('rw', [db.functionalities, db.technicalComponents], async () => {
+    await detachFromComponents([], [id]);
+    await db.functionalities.delete(id);
+  });
+}
+
+// ------------------------------------------------------------------ technical components
+
+export async function createTechnicalComponent(
+  applicationId: string,
+  kind: TechnicalComponentKind,
+  name: string,
+  description = '',
+): Promise<TechnicalComponent> {
+  const component: TechnicalComponent = {
+    ...stamp(),
+    applicationId,
+    kind,
+    name: name.trim(),
+    description: description.trim(),
+    definition: '',
+    functionalityIds: [],
+    screenIds: [],
+    relatedComponentIds: [],
+    metadata: {},
+    columns: [],
+  };
+  await db.technicalComponents.add(component);
+  return component;
+}
+
+export async function deleteTechnicalComponent(id: string): Promise<void> {
+  await db.transaction('rw', db.technicalComponents, async () => {
+    await detachComponentRefs([id]);
+    await db.technicalComponents.delete(id);
+  });
+}
+
+export type LinkTarget = 'screen' | 'functionality';
+
+/** Tags a component as powering a screen or functionality (idempotent). */
+export async function linkComponent(componentId: string, target: LinkTarget, targetId: string): Promise<void> {
+  await db.transaction('rw', db.technicalComponents, async () => {
+    const c = await db.technicalComponents.get(componentId);
+    if (!c) return;
+    const key = target === 'screen' ? 'screenIds' : 'functionalityIds';
+    const list = c[key] ?? [];
+    if (list.includes(targetId)) return;
+    await db.technicalComponents.update(componentId, { [key]: [...list, targetId], updatedAt: nowIso() });
+  });
+}
+
+export async function unlinkComponent(componentId: string, target: LinkTarget, targetId: string): Promise<void> {
+  await db.transaction('rw', db.technicalComponents, async () => {
+    const c = await db.technicalComponents.get(componentId);
+    if (!c) return;
+    const key = target === 'screen' ? 'screenIds' : 'functionalityIds';
+    await db.technicalComponents.update(componentId, { [key]: (c[key] ?? []).filter((x) => x !== targetId), updatedAt: nowIso() });
+  });
 }

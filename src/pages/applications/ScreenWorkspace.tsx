@@ -14,8 +14,10 @@ import ScreenOverviewTab from './ScreenOverviewTab';
 import ScreenMediaTab from './ScreenMediaTab';
 import BusinessLogicTab from './BusinessLogicTab';
 import FunctionalitiesTab from './FunctionalitiesTab';
+import Section from '@/components/ui/Section';
+import LinkedComponentsPanel from '@/components/technical/LinkedComponentsPanel';
 
-const TAB_IDS = ['overview', 'ui', 'logic', 'functionalities'] as const;
+const TAB_IDS = ['overview', 'ui', 'logic', 'functionalities', 'technical'] as const;
 type TabId = (typeof TAB_IDS)[number];
 
 export default function ScreenWorkspace() {
@@ -44,6 +46,7 @@ function ScreenEditor({ screen }: { screen: Screen }) {
 
   const mediaCount = useLiveQuery(() => db.screenMedia.where('screenId').equals(screen.id).count(), [screen.id]);
   const fnCount = useLiveQuery(() => db.functionalities.where('screenId').equals(screen.id).count(), [screen.id]);
+  const techCount = useLiveQuery(() => db.technicalComponents.where('screenIds').equals(screen.id).count(), [screen.id]);
 
   const selectTab = (id: TabId) =>
     setParams(
@@ -79,6 +82,7 @@ function ScreenEditor({ screen }: { screen: Screen }) {
           { id: 'ui', label: 'UI documentation', count: mediaCount },
           { id: 'logic', label: 'Business logic' },
           { id: 'functionalities', label: 'Functionalities', count: fnCount },
+          { id: 'technical', label: 'Technical', count: techCount },
         ]}
       />
 
@@ -87,6 +91,11 @@ function ScreenEditor({ screen }: { screen: Screen }) {
         {tab === 'ui' && <ScreenMediaTab screen={draft} />}
         {tab === 'logic' && <BusinessLogicTab screen={draft} update={update} />}
         {tab === 'functionalities' && <FunctionalitiesTab screen={draft} />}
+        {tab === 'technical' && (
+          <Section title="Linked technical components" description="Tables, APIs, services and jobs this screen relies on.">
+            <LinkedComponentsPanel target="screen" targetId={screen.id} applicationId={screen.applicationId} />
+          </Section>
+        )}
       </div>
 
       <ConfirmModal

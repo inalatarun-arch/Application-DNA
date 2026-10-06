@@ -79,6 +79,7 @@ export default function StructureTree({ app, modules, screens }: Props) {
 
       <div className="max-h-72 space-y-0.5 overflow-y-auto lg:max-h-[calc(100dvh-20rem)]">
         <NavLink to={base} end className={({ isActive }) => linkClass(isActive)}>Overview</NavLink>
+        <NavLink to={`${base}/technical`} className={({ isActive }) => linkClass(isActive)}>Technical components</NavLink>
 
         {visibleGroups.length === 0 && visibleOrphans.length === 0 && (
           <p className="px-2 py-3 text-body-md text-on-surface-variant">{q ? 'Nothing matches the filter.' : 'No modules yet. Add the first module to start documenting screens.'}</p>

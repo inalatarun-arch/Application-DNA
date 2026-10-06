@@ -6,6 +6,7 @@ import SaveStatus from '@/components/ui/SaveStatus';
 import TagInput from '@/components/ui/TagInput';
 import StringListEditor from '@/components/ui/StringListEditor';
 import RelatedPicker, { type RelatedOption } from '@/components/ui/RelatedPicker';
+import LinkedComponentsPanel from '@/components/technical/LinkedComponentsPanel';
 
 interface Props {
   functionality: Functionality;
@@ -78,6 +79,11 @@ export default function FunctionalityEditor({ functionality, relatedOptions, onD
           <StringListEditor label="Business exceptions" items={draft.exceptions.business} onChange={(v) => setException('business', v)} addLabel="Add" />
           <StringListEditor label="System exceptions" items={draft.exceptions.system} onChange={(v) => setException('system', v)} addLabel="Add" />
         </div>
+      </div>
+
+      <div>
+        <h4 className="mb-3 text-body-md font-semibold">Linked technical components</h4>
+        <LinkedComponentsPanel target="functionality" targetId={functionality.id} applicationId={functionality.applicationId} />
       </div>
 
       <div>

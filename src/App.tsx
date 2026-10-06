@@ -10,6 +10,8 @@ import ApplicationWorkspace from '@/pages/applications/ApplicationWorkspace';
 import ApplicationOverview from '@/pages/applications/ApplicationOverview';
 import ModuleDetailPage from '@/pages/applications/ModuleDetailPage';
 import ScreenWorkspace from '@/pages/applications/ScreenWorkspace';
+import TechnicalRegistryPage from '@/pages/applications/TechnicalRegistryPage';
+import TechnicalComponentPage from '@/pages/applications/TechnicalComponentPage';
 
 export default function App() {
   return (
@@ -23,6 +25,8 @@ export default function App() {
             <Route index element={<ApplicationOverview />} />
             <Route path="modules/:moduleId" element={<ModuleDetailPage />} />
             <Route path="screens/:screenId" element={<ScreenWorkspace />} />
+            <Route path="technical" element={<TechnicalRegistryPage />} />
+            <Route path="technical/:componentId" element={<TechnicalComponentPage />} />
           </Route>
         </Route>
         <Route

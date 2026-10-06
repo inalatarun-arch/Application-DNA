@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { AppWindow, ListChecks, Search } from 'lucide-react';
+import { AppWindow, Boxes, ListChecks, Search } from 'lucide-react';
 import PageHeader from '@/components/ui/PageHeader';
 import EmptyState from '@/components/ui/EmptyState';
 import { loadCatalogData, searchCatalog, type CatalogKind } from '@/lib/catalogSearch';
@@ -12,6 +12,7 @@ const KINDS: Array<{ id: CatalogKind | 'all'; label: string }> = [
   { id: 'all', label: 'All' },
   { id: 'screen', label: 'Screens' },
   { id: 'functionality', label: 'Functionalities' },
+  { id: 'component', label: 'Technical' },
 ];
 
 export default function CatalogSearchPage() {
@@ -24,17 +25,17 @@ export default function CatalogSearchPage() {
     () => (data ? searchCatalog(data, { query, kind, applicationId: applicationId === 'all' ? undefined : applicationId, limit: 300 }) : []),
     [data, query, kind, applicationId],
   );
-  const total = (data?.screens.length ?? 0) + (data?.functionalities.length ?? 0);
+  const total = (data?.screens.length ?? 0) + (data?.functionalities.length ?? 0) + (data?.technicalComponents.length ?? 0);
 
   return (
     <>
-      <PageHeader title="Applications" description="Search every documented screen and functionality, including field descriptions, rules, roles, inputs and outputs." />
+      <PageHeader title="Applications" description="Search every documented screen, functionality and technical component, including field descriptions, rules, roles, inputs, outputs and columns." />
       <ApplicationsTabs />
 
       <div className="mb-4 flex flex-wrap items-center gap-2">
         <div className="relative min-w-[240px] flex-1">
           <Search size={16} aria-hidden className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-outline" />
-          <input className="input pl-9" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search names, purposes, fields, rules, roles, systems…" aria-label="Search screens and functionalities" autoFocus />
+          <input className="input pl-9" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search names, fields, rules, roles, tables, APIs…" aria-label="Search the catalog" autoFocus />
         </div>
         <select className="input w-auto" value={applicationId} onChange={(e) => setApplicationId(e.target.value)} aria-label="Filter by application">
           <option value="all">All applications</option>
@@ -50,7 +51,7 @@ export default function CatalogSearchPage() {
       </div>
 
       {data && total === 0 ? (
-        <EmptyState icon={AppWindow} title="Nothing documented yet" description="Screens and functionalities appear here as soon as you add them to an application.">
+        <EmptyState icon={AppWindow} title="Nothing documented yet" description="Screens, functionalities and technical components appear here as soon as you add them to an application.">
           <Link to="/applications" className="btn btn-secondary">Go to applications</Link>
         </EmptyState>
       ) : hits.length === 0 ? (
@@ -72,7 +73,13 @@ export default function CatalogSearchPage() {
                   <tr key={`${h.kind}-${h.id}`} className="hover:bg-surface-low">
                     <td className="px-4 py-3">
                       <Link to={h.to} className="flex items-center gap-2 font-semibold hover:underline">
-                        {h.kind === 'screen' ? <AppWindow size={16} aria-label="Screen" className="shrink-0 text-on-surface-variant" /> : <ListChecks size={16} aria-label="Functionality" className="shrink-0 text-on-surface-variant" />}
+                        {h.kind === 'screen' ? (
+                          <AppWindow size={16} aria-label="Screen" className="shrink-0 text-on-surface-variant" />
+                        ) : h.kind === 'functionality' ? (
+                          <ListChecks size={16} aria-label="Functionality" className="shrink-0 text-on-surface-variant" />
+                        ) : (
+                          <Boxes size={16} aria-label="Technical component" className="shrink-0 text-on-surface-variant" />
+                        )}
                         {h.name || 'Untitled'}
                       </Link>
                     </td>

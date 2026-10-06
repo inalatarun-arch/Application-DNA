@@ -11,10 +11,14 @@ export default function ApplicationWorkspace() {
   const { appId = '' } = useParams();
   const screenMatch = useMatch('/applications/:appId/screens/:screenId');
   const moduleMatch = useMatch('/applications/:appId/modules/:moduleId');
+  const techMatch = useMatch('/applications/:appId/technical');
+  const componentMatch = useMatch('/applications/:appId/technical/:componentId');
+  const componentId = componentMatch?.params.componentId;
 
   const app = useLiveQuery(() => db.applications.get(appId).then((a) => a ?? null), [appId]);
   const modules = useLiveQuery(() => db.modules.where('applicationId').equals(appId).toArray(), [appId]);
   const screens = useLiveQuery(() => db.screens.where('applicationId').equals(appId).toArray(), [appId]);
+  const component = useLiveQuery(() => (componentId ? db.technicalComponents.get(componentId) : undefined), [componentId]);
 
   if (app === undefined || modules === undefined || screens === undefined) {
     return <p className="text-body-md text-on-surface-variant">Loading…</p>;
@@ -33,10 +37,14 @@ export default function ApplicationWorkspace() {
 
   const crumbs: Array<{ label: string; to?: string }> = [
     { label: 'Applications', to: '/applications' },
-    { label: app.name, to: screen || mod ? base : undefined },
+    { label: app.name, to: screen || mod || techMatch || componentMatch ? base : undefined },
   ];
   if (mod) crumbs.push({ label: mod.name, to: screen ? `${base}/modules/${mod.id}` : undefined });
   if (screen) crumbs.push({ label: screen.name });
+  if (techMatch || componentMatch) {
+    crumbs.push({ label: 'Technical components', to: componentMatch ? `${base}/technical` : undefined });
+    if (componentMatch && component) crumbs.push({ label: component.name || 'Untitled component' });
+  }
 
   const context: AppContext = { app };
 

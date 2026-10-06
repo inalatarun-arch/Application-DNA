@@ -15,7 +15,7 @@ import type {
 } from './types';
 
 /** Bump together with a new `this.version(n)` block when the schema changes. */
-export const DB_SCHEMA_VERSION = 2;
+export const DB_SCHEMA_VERSION = 3;
 
 export class EihDatabase extends Dexie {
   applications!: Table<Application, string>;
@@ -50,6 +50,10 @@ export class EihDatabase extends Dexie {
     // v2: screenshots/wireframes live in their own table so editing a screen never rewrites image data.
     this.version(2).stores({
       screenMedia: 'id, screenId, applicationId',
+    });
+    // v3: technical components can be linked to screens (multi-entry index for reverse lookups).
+    this.version(3).stores({
+      technicalComponents: 'id, applicationId, kind, name, *functionalityIds, *screenIds',
     });
   }
 }

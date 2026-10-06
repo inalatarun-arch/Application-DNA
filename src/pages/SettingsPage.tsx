@@ -4,6 +4,7 @@ import PageHeader from '@/components/ui/PageHeader';
 import AiConfiguration from './settings/AiConfiguration';
 import WorkspaceCard from './settings/WorkspaceCard';
 import DataManagement from './settings/DataManagement';
+import SampleDataCard from './settings/SampleDataCard';
 
 export default function SettingsPage() {
   const { hash } = useLocation();
@@ -19,6 +20,7 @@ export default function SettingsPage() {
       <div className="space-y-6">
         <AiConfiguration />
         <WorkspaceCard />
+        <SampleDataCard />
         <DataManagement />
       </div>
     </>

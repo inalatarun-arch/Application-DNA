@@ -28,13 +28,14 @@ export default function ApplicationOverview() {
   const [newModule, setNewModule] = useState(false);
 
   const data = useLiveQuery(async () => {
-    const [modules, screenKeys, fnCount] = await Promise.all([
+    const [modules, screenKeys, fnCount, componentCount] = await Promise.all([
       db.modules.where('applicationId').equals(app.id).toArray(),
       db.screens.where('applicationId').equals(app.id).toArray(),
       db.functionalities.where('applicationId').equals(app.id).count(),
+      db.technicalComponents.where('applicationId').equals(app.id).count(),
     ]);
     modules.sort((a, b) => a.name.localeCompare(b.name));
-    return { modules, screens: screenKeys, functionalities: fnCount };
+    return { modules, screens: screenKeys, functionalities: fnCount, components: componentCount };
   }, [app.id]);
 
   const screenCount = (moduleId: string) => data?.screens.filter((s) => s.moduleId === moduleId).length ?? 0;
@@ -74,11 +75,12 @@ export default function ApplicationOverview() {
         </dl>
       </section>
 
-      <section aria-label="Totals" className="grid grid-cols-3 gap-4">
+      <section aria-label="Totals" className="grid grid-cols-2 gap-4 sm:grid-cols-4">
         {[
           ['Modules', data?.modules.length],
           ['Screens', data?.screens.length],
           ['Functionalities', data?.functionalities],
+          ['Technical components', data?.components],
         ].map(([label, value]) => (
           <div key={label as string} className="card p-4">
             <p className="text-label-md text-on-surface-variant">{label}</p>

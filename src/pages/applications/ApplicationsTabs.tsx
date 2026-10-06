@@ -3,7 +3,7 @@ import { cn } from '@/lib/cn';
 
 const TABS = [
   { to: '/applications', label: 'Applications', end: true },
-  { to: '/applications/catalog', label: 'Screens & functionalities', end: false },
+  { to: '/applications/catalog', label: 'Search catalog', end: false },
 ];
 
 /** Route-based tab strip shared by the two top-level Applications views. */

@@ -11,6 +11,13 @@ interface FieldRow {
 const isFieldRow = (v: unknown): v is FieldRow =>
   typeof v === 'object' && v !== null && typeof (v as FieldRow).field === 'string' && typeof (v as FieldRow).description === 'string';
 
+interface ColumnRow {
+  name: string;
+  dataType: string;
+}
+const isColumnRow = (v: unknown): v is ColumnRow =>
+  typeof v === 'object' && v !== null && typeof (v as ColumnRow).name === 'string' && typeof (v as ColumnRow).dataType === 'string' && 'nullable' in v;
+
 /**
  * Removes blank list rows from what is persisted. The on-screen draft keeps them so a row
  * you just added doesn't vanish while you're typing into it.
@@ -19,7 +26,7 @@ function clean(value: unknown): unknown {
   if (Array.isArray(value)) {
     return value
       .map(clean)
-      .filter((item) => (typeof item === 'string' ? item.trim() !== '' : !(isFieldRow(item) && !item.field.trim() && !item.description.trim())));
+      .filter((item) => (typeof item === 'string' ? item.trim() !== '' : !((isFieldRow(item) && !item.field.trim() && !item.description.trim()) || (isColumnRow(item) && !item.name.trim()))));
   }
   if (value && typeof value === 'object') {
     return Object.fromEntries(Object.entries(value).map(([k, v]) => [k, clean(v)]));

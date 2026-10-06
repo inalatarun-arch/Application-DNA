@@ -99,17 +99,34 @@ export type TechnicalComponentKind =
   | 'rest' | 'soap' | 'middleware' | 'queue'
   | 'server' | 'cloud' | 'job';
 
+export interface ColumnDef {
+  name: string;
+  dataType: string;
+  nullable: boolean;
+  /** Primary or foreign key marker. */
+  key: '' | 'PK' | 'FK';
+  /** For FK columns: the referenced "TABLE.COLUMN". */
+  references: string;
+  description: string;
+}
+
 export interface TechnicalComponent extends BaseEntity {
   applicationId: ID;
   kind: TechnicalComponentKind;
   name: string;
   description: string;
-  /** Source, SQL, endpoint spec, etc. */
-  definition?: string;
+  /** Source code, DDL, SQL, sample payload or notes, depending on kind. */
+  definition: string;
+  /** Functionalities powered by this component (any application). */
   functionalityIds: ID[];
-  /** Edges to other components (e.g. table relationships). */
+  /** Screens that rely on this component directly (any application). */
+  screenIds: ID[];
+  /** Components this one depends on (e.g. an API depends on a procedure, a table on its FK parents). */
   relatedComponentIds: ID[];
+  /** Kind-specific attributes; the keys per kind are defined in config/technical.ts. */
   metadata: Record<string, string>;
+  /** Columns for tables and views. */
+  columns: ColumnDef[];
 }
 
 // ---------- Domain 2: Project & Delivery Management ----------

@@ -9,6 +9,7 @@ import { useWorkspace } from '@/db/settings';
 const COUNTERS = [
   { label: 'Applications', key: 'applications' },
   { label: 'Functionalities', key: 'functionalities' },
+  { label: 'Technical components', key: 'components' },
   { label: 'Projects', key: 'projects' },
   { label: 'Requirements', key: 'requirements' },
   { label: 'Test cases', key: 'testCases' },
@@ -21,15 +22,16 @@ export default function DashboardPage() {
   const status = useGeminiStatus();
 
   const counts = useLiveQuery(async () => {
-    const [applications, functionalities, projects, requirements, testCases, defects] = await Promise.all([
+    const [applications, functionalities, components, projects, requirements, testCases, defects] = await Promise.all([
       db.applications.count(),
       db.functionalities.count(),
+      db.technicalComponents.count(),
       db.projects.count(),
       db.requirements.count(),
       db.testCases.count(),
       db.defects.where('status').anyOf('open', 'in-progress').count(),
     ]);
-    return { applications, functionalities, projects, requirements, testCases, defects };
+    return { applications, functionalities, components, projects, requirements, testCases, defects };
   }, []);
 
   const steps = [

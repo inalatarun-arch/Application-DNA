@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { AppWindow, ListChecks, Search, type LucideIcon } from 'lucide-react';
+import { AppWindow, Boxes, ListChecks, Search, type LucideIcon } from 'lucide-react';
 import { NAV_ITEMS } from '@/config/nav';
 import { loadCatalogData, searchCatalog, type CatalogData } from '@/lib/catalogSearch';
 import { cn } from '@/lib/cn';
@@ -18,7 +18,7 @@ interface Item {
   icon: LucideIcon;
 }
 
-/** Quick jump: pages, plus every documented screen and functionality once you type two characters. */
+/** Quick jump: pages, plus every documented screen, functionality and technical component once you type two characters. */
 export default function CommandPalette({ open, onClose }: Props) {
   const navigate = useNavigate();
   const inputRef = useRef<HTMLInputElement>(null);
@@ -60,7 +60,7 @@ export default function CommandPalette({ open, onClose }: Props) {
       label: h.name || 'Untitled',
       sublabel: h.matchedIn ? `${h.path} · matched in ${h.matchedIn.toLowerCase()}` : h.path,
       to: h.to,
-      icon: h.kind === 'screen' ? AppWindow : ListChecks,
+      icon: h.kind === 'screen' ? AppWindow : h.kind === 'functionality' ? ListChecks : Boxes,
     }));
   }, [catalog, q]);
 
@@ -111,7 +111,7 @@ export default function CommandPalette({ open, onClose }: Props) {
             ref={inputRef}
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search pages, screens and functionalities…"
+            placeholder="Search pages, screens, functionalities and components…"
             aria-label="Search"
             className="h-12 w-full bg-transparent text-body-lg text-on-surface placeholder:text-outline focus-visible:outline-none"
           />
@@ -126,8 +126,8 @@ export default function CommandPalette({ open, onClose }: Props) {
           )}
           {content.length > 0 && (
             <>
-              <p className="px-3 pb-1 pt-2 text-label-md text-on-surface-variant">Screens and functionalities</p>
-              <ul role="listbox" aria-label="Screens and functionalities">{content.map((item, i) => row(item, pages.length + i))}</ul>
+              <p className="px-3 pb-1 pt-2 text-label-md text-on-surface-variant">Catalog</p>
+              <ul role="listbox" aria-label="Catalog results">{content.map((item, i) => row(item, pages.length + i))}</ul>
             </>
           )}
         </div>
