@@ -27,7 +27,7 @@ const SCHEMA = {
   type: 'OBJECT',
   properties: {
     summary: { type: 'STRING' },
-    functional: { type: 'ARRAY', items: { type: 'OBJECT', properties: { area: { type: 'STRING' }, description: { type: 'STRING' }, severity: { type: 'STRING' } }, required: ['area', 'description'] } },
+    functional: { type: 'ARRAY', items: { type: 'OBJECT', properties: { area: { type: 'STRING' }, description: { type: 'STRING' }, severity: { type: 'STRING' }, impactedPart: { type: 'STRING' }, currentState: { type: 'STRING' }, proposedChange: { type: 'STRING' }, rationale: { type: 'STRING' } }, required: ['area', 'description'] } },
     technical: { type: 'ARRAY', items: { type: 'OBJECT', properties: { area: { type: 'STRING' }, description: { type: 'STRING' }, severity: { type: 'STRING' } }, required: ['area', 'description'] } },
     risks: { type: 'ARRAY', items: { type: 'OBJECT', properties: { risk: { type: 'STRING' }, mitigation: { type: 'STRING' }, severity: { type: 'STRING' } }, required: ['risk'] } },
     gaps: { type: 'ARRAY', items: { type: 'OBJECT', properties: { gap: { type: 'STRING' }, recommendation: { type: 'STRING' } }, required: ['gap'] } },
@@ -103,8 +103,8 @@ ${comps || '(none documented)'}`;
     model: result.model,
     assessment: {
       summary: str(raw.summary),
-      functional: records(raw.functional).map((x) => ({ area: str(x.area), description: str(x.description), severity: severity(x.severity) })).filter((x) => x.area || x.description),
-      technical: records(raw.technical).map((x) => ({ area: str(x.area), description: str(x.description), severity: severity(x.severity) })).filter((x) => x.area || x.description),
+      functional: records(raw.functional).map((x) => ({ area: str(x.area), description: str(x.description), severity: severity(x.severity), impactedPart: str(x.impactedPart), currentState: str(x.currentState), proposedChange: str(x.proposedChange), rationale: str(x.rationale) })).filter((x) => x.area || x.description),
+      technical: records(raw.technical).map((x) => ({ area: str(x.area), description: str(x.description), severity: severity(x.severity), impactedPart: str(x.impactedPart), currentState: str(x.currentState), proposedChange: str(x.proposedChange), rationale: str(x.rationale) })).filter((x) => x.area || x.description),
       risks: records(raw.risks).map((x) => ({ risk: str(x.risk), mitigation: str(x.mitigation), severity: severity(x.severity) })).filter((x) => x.risk),
       gaps: records(raw.gaps).map((x) => ({ gap: str(x.gap), recommendation: str(x.recommendation) })).filter((x) => x.gap),
     },
