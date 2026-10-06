@@ -46,7 +46,11 @@ function FlowsView({ source }: { source: GraphSource }) {
   const [view, setView] = usePersistentState<FlowView>('eih.flow.view', 'swimlane');
   const [zoom, setZoom] = useState(1);
   const [copied, setCopied] = useState(false);
-  const [exportError, setExportError] = useState('');\n  const [aiFlow, setAiFlow] = useState('');\n  const [aiBusy, setAiBusy] = useState(false);\n  const [aiError, setAiError] = useState('');\n  const apiKey = useApiKey();
+  const [exportError, setExportError] = useState('');
+  const [aiFlow, setAiFlow] = useState('');
+  const [aiBusy, setAiBusy] = useState(false);
+  const [aiError, setAiError] = useState('');
+  const apiKey = useApiKey();
   const frame = useRef<HTMLDivElement>(null);
 
   const scope: Scope = params.get('type') === 'module' ? 'module' : 'functionality';
@@ -77,7 +81,8 @@ function FlowsView({ source }: { source: GraphSource }) {
   }, [functionalities, screenName]);
 
   const selectedFn = scope === 'functionality' ? functionalities.find((f) => f.id === idParam) ?? groups[0]?.items[0] : undefined;
-  const selectedMod = scope === 'module' ? modules.find((m) => m.id === idParam) ?? modules[0] : undefined;\n  useEffect(() => { setAiFlow(''); setAiError(''); }, [selectedFn?.id, selectedMod?.id]);
+  const selectedMod = scope === 'module' ? modules.find((m) => m.id === idParam) ?? modules[0] : undefined;
+  useEffect(() => { setAiFlow(''); setAiError(''); }, [selectedFn?.id, selectedMod?.id]);
 
   const model: FlowModel | null = useMemo(() => {
     if (selectedFn) return buildFunctionalityFlow(selectedFn, source);
