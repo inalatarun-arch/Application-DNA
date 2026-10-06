@@ -228,6 +228,7 @@ function FlowsView({ source }: { source: GraphSource }) {
                 {copied ? <Check size={14} aria-hidden /> : <Copy size={14} aria-hidden />}
                 {copied ? 'Copied' : 'Mermaid'}
               </button>
+            </div>
           </div>
 
           {exportError && <p role="alert" className="rounded border border-error bg-error-container p-3 text-body-md text-error">{exportError}</p>}
