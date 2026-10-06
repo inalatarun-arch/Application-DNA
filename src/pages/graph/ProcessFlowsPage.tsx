@@ -215,7 +215,7 @@ function FlowsView({ source }: { source: GraphSource }) {
                   {aiBusy ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} aria-hidden />}
                   {aiBusy ? 'Generating…' : 'Generate with Gemini'}
                 </button>
-              )}            <div className="flex flex-wrap items-center gap-2">
+              )}
               <div role="group" aria-label="Zoom" className="flex items-center rounded border border-outline-variant">
                 <button type="button" className="icon-btn" aria-label="Zoom out" onClick={() => setZoom((z) => Math.max(0.4, Number((z - 0.1).toFixed(2))))}><Minus size={16} aria-hidden /></button>
                 <span className="w-12 text-center text-label-md tabular-nums">{Math.round(zoom * 100)}%</span>
@@ -228,7 +228,6 @@ function FlowsView({ source }: { source: GraphSource }) {
                 {copied ? <Check size={14} aria-hidden /> : <Copy size={14} aria-hidden />}
                 {copied ? 'Copied' : 'Mermaid'}
               </button>
-            </div>
           </div>
 
           {exportError && <p role="alert" className="rounded border border-error bg-error-container p-3 text-body-md text-error">{exportError}</p>}
