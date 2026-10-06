@@ -199,7 +199,9 @@ export default function ExtractedRequirementsTab({ project, onOpenMeeting }: Pro
         )}
       </section>
 
-      <RequirementImportModal open={importOpen} project={project} onClose={() => setImportOpen(false)} onImported={() => setImportOpen(false)} />\n\n      <QuickCreateModal
+      <RequirementImportModal open={importOpen} project={project} onClose={() => setImportOpen(false)} onImported={() => setImportOpen(false)} />
+
+      <QuickCreateModal
         open={adding}
         title="Add requirement"
         nameLabel="Requirement"
