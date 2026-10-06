@@ -294,10 +294,11 @@ export async function linkComponent(componentId: string, target: LinkTarget, tar
   await db.transaction('rw', db.technicalComponents, async () => {
     const c = await db.technicalComponents.get(componentId);
     if (!c) return;
-    const key = target === 'screen' ? 'screenIds' : 'functionalityIds';
-    const list = c[key] ?? [];
+    const list = (target === 'screen' ? c.screenIds : c.functionalityIds) ?? [];
     if (list.includes(targetId)) return;
-    await db.technicalComponents.update(componentId, { [key]: [...list, targetId], updatedAt: nowIso() });
+    const next = [...list, targetId];
+    const patch = target === 'screen' ? { screenIds: next } : { functionalityIds: next };
+    await db.technicalComponents.update(componentId, { ...patch, updatedAt: nowIso() });
   });
 }
 
@@ -305,7 +306,8 @@ export async function unlinkComponent(componentId: string, target: LinkTarget, t
   await db.transaction('rw', db.technicalComponents, async () => {
     const c = await db.technicalComponents.get(componentId);
     if (!c) return;
-    const key = target === 'screen' ? 'screenIds' : 'functionalityIds';
-    await db.technicalComponents.update(componentId, { [key]: (c[key] ?? []).filter((x) => x !== targetId), updatedAt: nowIso() });
+    const next = ((target === 'screen' ? c.screenIds : c.functionalityIds) ?? []).filter((x) => x !== targetId);
+    const patch = target === 'screen' ? { screenIds: next } : { functionalityIds: next };
+    await db.technicalComponents.update(componentId, { ...patch, updatedAt: nowIso() });
   });
 }
