@@ -1,0 +1,878 @@
+{
+  "format": "eih-backup",
+  "backupVersion": 1,
+  "schemaVersion": 4,
+  "exportedAt": "2026-10-06T09:00:00.000Z",
+  "tables": {
+    "applications": [
+      {
+        "id": "app-ebs",
+        "createdAt": "2026-10-06T09:00:00.000Z",
+        "updatedAt": "2026-10-06T09:00:00.000Z",
+        "name": "Oracle E-Business Suite",
+        "vendor": "Oracle E-Business Suite",
+        "domain": "Finance",
+        "technicalStack": [
+          "Oracle Forms",
+          "OAF",
+          "PL/SQL",
+          "Oracle Database 19c"
+        ],
+        "criticalTier": "tier-1",
+        "description": "Core ERP for supplier, invoice and payment processing.",
+        "businessOwner": "Finance Director",
+        "technicalOwner": "ERP Platform Lead",
+        "tags": [
+          "ERP",
+          "Finance",
+          "sample-data"
+        ]
+      },
+      {
+        "id": "app-sf",
+        "createdAt": "2026-10-06T09:00:00.000Z",
+        "updatedAt": "2026-10-06T09:00:00.000Z",
+        "name": "Salesforce",
+        "vendor": "Salesforce",
+        "domain": "Procurement",
+        "technicalStack": [
+          "Apex",
+          "Lightning Web Components",
+          "REST API"
+        ],
+        "criticalTier": "tier-2",
+        "description": "Front door for supplier onboarding requests.",
+        "businessOwner": "Head of Procurement",
+        "technicalOwner": "CRM Platform Lead",
+        "tags": [
+          "CRM",
+          "Supplier Onboarding",
+          "sample-data"
+        ]
+      },
+      {
+        "id": "app-portal",
+        "createdAt": "2026-10-06T09:00:00.000Z",
+        "updatedAt": "2026-10-06T09:00:00.000Z",
+        "name": "Custom Procurement Portal",
+        "vendor": "Custom application",
+        "domain": "Procurement",
+        "technicalStack": [
+          "React",
+          "Node.js",
+          "PostgreSQL"
+        ],
+        "criticalTier": "tier-3",
+        "description": "Internal purchase requisition portal.",
+        "businessOwner": "Head of Procurement",
+        "technicalOwner": "Portal Tech Lead",
+        "tags": [
+          "Procurement",
+          "sample-data"
+        ]
+      }
+    ],
+    "modules": [
+      {
+        "id": "mod-ap",
+        "createdAt": "2026-10-06T09:00:00.000Z",
+        "updatedAt": "2026-10-06T09:00:00.000Z",
+        "applicationId": "app-ebs",
+        "name": "Payables",
+        "description": "Supplier, invoice and payment processing.",
+        "owner": "AP Functional Lead"
+      },
+      {
+        "id": "mod-onboard",
+        "createdAt": "2026-10-06T09:00:00.000Z",
+        "updatedAt": "2026-10-06T09:00:00.000Z",
+        "applicationId": "app-sf",
+        "name": "Supplier Onboarding",
+        "description": "Intake and tracking of supplier requests.",
+        "owner": "CRM Functional Lead"
+      }
+    ],
+    "screens": [
+      {
+        "id": "scr-supplier",
+        "createdAt": "2026-10-06T09:00:00.000Z",
+        "updatedAt": "2026-10-06T09:00:00.000Z",
+        "applicationId": "app-ebs",
+        "moduleId": "mod-ap",
+        "name": "Supplier Maintenance",
+        "purpose": "Create and maintain supplier records.",
+        "description": "Create suppliers, validate tax details and activate verified records.",
+        "businessProcess": "Procure to Pay",
+        "businessOwner": "Head of Procurement",
+        "functionalOwner": "AP Functional Lead",
+        "navigationPath": "Payables > Suppliers > Maintain Suppliers",
+        "fieldDescriptions": [
+          {
+            "field": "Supplier Name",
+            "description": "Legal supplier name."
+          },
+          {
+            "field": "Tax ID",
+            "description": "Government tax registration number."
+          },
+          {
+            "field": "Payment Terms",
+            "description": "Default invoice terms."
+          },
+          {
+            "field": "Status",
+            "description": "Active, Suspended or Inactive."
+          }
+        ],
+        "validationRules": [
+          "Supplier Name is mandatory",
+          "Tax ID must match country format",
+          "Duplicate Tax ID blocks save"
+        ],
+        "workflowSteps": [
+          "Procurement submits request",
+          "AP verifies details",
+          "Supplier is activated and synchronized"
+        ],
+        "approvalLogic": "High-risk suppliers require Finance Director approval.",
+        "exceptionHandling": [
+          "Duplicate supplier blocks creation",
+          "Integration timeout queues the sync"
+        ],
+        "upstreamSystems": [
+          "Salesforce"
+        ],
+        "downstreamSystems": [
+          "Invoice Processing",
+          "Payment Processing"
+        ],
+        "relatedScreenIds": []
+      },
+      {
+        "id": "scr-request",
+        "createdAt": "2026-10-06T09:00:00.000Z",
+        "updatedAt": "2026-10-06T09:00:00.000Z",
+        "applicationId": "app-sf",
+        "moduleId": "mod-onboard",
+        "name": "Supplier Onboarding Request",
+        "purpose": "Collect supplier details and submit onboarding.",
+        "description": "Procurement users create and track onboarding requests.",
+        "businessProcess": "Supplier Onboarding",
+        "businessOwner": "Head of Procurement",
+        "functionalOwner": "CRM Functional Lead",
+        "navigationPath": "App Launcher > Supplier Onboarding > New Request",
+        "fieldDescriptions": [
+          {
+            "field": "Legal Name",
+            "description": "Supplier legal name."
+          },
+          {
+            "field": "Tax ID",
+            "description": "Supplier tax registration number."
+          },
+          {
+            "field": "Payment Terms",
+            "description": "Requested payment terms."
+          }
+        ],
+        "validationRules": [
+          "Legal Name is mandatory",
+          "Tax ID is mandatory"
+        ],
+        "workflowSteps": [
+          "Enter details",
+          "Submit request",
+          "Middleware sends request to EBS",
+          "Track status"
+        ],
+        "approvalLogic": "Submission requires mandatory fields.",
+        "exceptionHandling": [
+          "EBS timeout leaves request in Integration Pending"
+        ],
+        "upstreamSystems": [],
+        "downstreamSystems": [
+          "Oracle E-Business Suite"
+        ],
+        "relatedScreenIds": []
+      }
+    ],
+    "functionalities": [
+      {
+        "id": "fn-create",
+        "createdAt": "2026-10-06T09:00:00.000Z",
+        "updatedAt": "2026-10-06T09:00:00.000Z",
+        "applicationId": "app-ebs",
+        "moduleId": "mod-ap",
+        "screenId": "scr-supplier",
+        "name": "Create Supplier",
+        "description": "Registers a new supplier after duplicate and tax checks.",
+        "businessPurpose": "Ensure only verified suppliers can be paid.",
+        "processFlow": "flowchart LR\\nA[Supplier request] --> B[Validate Tax ID] --> C{Duplicate?}\\nC -- No --> D[Create supplier] --> E[Pending]\\nC -- Yes --> F[Block and show existing supplier]",
+        "userRoles": [
+          "Procurement User",
+          "AP Specialist"
+        ],
+        "triggers": [
+          "Approved Salesforce onboarding request",
+          "Manual AP entry"
+        ],
+        "inputs": [
+          "Supplier Name",
+          "Tax ID",
+          "Payment Terms"
+        ],
+        "outputs": [
+          "Supplier record",
+          "Approval task"
+        ],
+        "exceptions": {
+          "validation": [
+            "Invalid Tax ID"
+          ],
+          "error": [
+            "Database unavailable"
+          ],
+          "business": [
+            "Duplicate supplier found"
+          ],
+          "system": [
+            "Middleware timeout"
+          ]
+        },
+        "relatedFunctionalityIds": [],
+        "upstreamSystems": [
+          "Salesforce"
+        ],
+        "downstreamSystems": [
+          "Invoice Processing"
+        ]
+      },
+      {
+        "id": "fn-submit",
+        "createdAt": "2026-10-06T09:00:00.000Z",
+        "updatedAt": "2026-10-06T09:00:00.000Z",
+        "applicationId": "app-sf",
+        "moduleId": "mod-onboard",
+        "screenId": "scr-request",
+        "name": "Submit Onboarding Request",
+        "description": "Sends a completed onboarding request to Oracle EBS.",
+        "businessPurpose": "Create supplier records from the procurement front end.",
+        "processFlow": "flowchart LR\\nA[Complete form] --> B[Validate] --> C[MuleSoft] --> D[EBS Supplier API]",
+        "userRoles": [
+          "Procurement User"
+        ],
+        "triggers": [
+          "User clicks Submit"
+        ],
+        "inputs": [
+          "Legal Name",
+          "Tax ID",
+          "Payment Terms"
+        ],
+        "outputs": [
+          "Submitted request",
+          "EBS vendor ID when successful"
+        ],
+        "exceptions": {
+          "validation": [
+            "Missing Tax ID"
+          ],
+          "error": [
+            "API error"
+          ],
+          "business": [
+            "Duplicate supplier"
+          ],
+          "system": [
+            "Middleware timeout"
+          ]
+        },
+        "relatedFunctionalityIds": [
+          "fn-create"
+        ],
+        "upstreamSystems": [],
+        "downstreamSystems": [
+          "Oracle E-Business Suite"
+        ]
+      }
+    ],
+    "technicalComponents": [
+      {
+        "id": "tc-suppliers",
+        "createdAt": "2026-10-06T09:00:00.000Z",
+        "updatedAt": "2026-10-06T09:00:00.000Z",
+        "applicationId": "app-ebs",
+        "kind": "table",
+        "name": "AP_SUPPLIERS",
+        "description": "Supplier master table.",
+        "definition": "CREATE TABLE AP.AP_SUPPLIERS (VENDOR_ID NUMBER PRIMARY KEY, VENDOR_NAME VARCHAR2(240) NOT NULL, VAT_REGISTRATION_NUM VARCHAR2(20), ENABLED_FLAG VARCHAR2(1) NOT NULL);",
+        "functionalityIds": [
+          "fn-create"
+        ],
+        "screenIds": [
+          "scr-supplier"
+        ],
+        "relatedComponentIds": [
+          "tc-proc"
+        ],
+        "metadata": {
+          "schema": "AP",
+          "database": "EBSPROD"
+        },
+        "columns": [
+          {
+            "name": "VENDOR_ID",
+            "dataType": "NUMBER",
+            "nullable": false,
+            "key": "PK",
+            "references": "",
+            "description": "Supplier identifier."
+          },
+          {
+            "name": "VENDOR_NAME",
+            "dataType": "VARCHAR2(240)",
+            "nullable": false,
+            "key": "",
+            "references": "",
+            "description": "Legal supplier name."
+          },
+          {
+            "name": "VAT_REGISTRATION_NUM",
+            "dataType": "VARCHAR2(20)",
+            "nullable": true,
+            "key": "",
+            "references": "",
+            "description": "Tax registration number."
+          },
+          {
+            "name": "ENABLED_FLAG",
+            "dataType": "VARCHAR2(1)",
+            "nullable": false,
+            "key": "",
+            "references": "",
+            "description": "Y when active."
+          }
+        ]
+      },
+      {
+        "id": "tc-proc",
+        "createdAt": "2026-10-06T09:00:00.000Z",
+        "updatedAt": "2026-10-06T09:00:00.000Z",
+        "applicationId": "app-ebs",
+        "kind": "procedure",
+        "name": "AP_SUPPLIER_PKG.CREATE_SUPPLIER",
+        "description": "Validates and creates a supplier, then publishes a sync event.",
+        "definition": "PROCEDURE CREATE_SUPPLIER(p_name IN VARCHAR2, p_tax_id IN VARCHAR2, x_vendor_id OUT NUMBER);",
+        "functionalityIds": [
+          "fn-create"
+        ],
+        "screenIds": [],
+        "relatedComponentIds": [
+          "tc-suppliers"
+        ],
+        "metadata": {
+          "schema": "APPS",
+          "language": "PL/SQL"
+        },
+        "columns": []
+      },
+      {
+        "id": "tc-api",
+        "createdAt": "2026-10-06T09:00:00.000Z",
+        "updatedAt": "2026-10-06T09:00:00.000Z",
+        "applicationId": "app-ebs",
+        "kind": "rest",
+        "name": "Supplier API: Create Supplier",
+        "description": "External REST endpoint for creating suppliers.",
+        "definition": "POST /webservices/rest/ap_supplier/create_supplier/",
+        "functionalityIds": [
+          "fn-create"
+        ],
+        "screenIds": [],
+        "relatedComponentIds": [
+          "tc-proc"
+        ],
+        "metadata": {
+          "httpMethod": "POST",
+          "path": "/webservices/rest/ap_supplier/create_supplier/",
+          "authMethod": "OAuth 2.0"
+        },
+        "columns": []
+      },
+      {
+        "id": "tc-mule",
+        "createdAt": "2026-10-06T09:00:00.000Z",
+        "updatedAt": "2026-10-06T09:00:00.000Z",
+        "applicationId": "app-sf",
+        "kind": "middleware",
+        "name": "MuleSoft: salesforce-supplier-onboarding",
+        "description": "Maps Salesforce onboarding requests to the EBS Supplier API.",
+        "definition": "Map Legal_Name__c -> vendorName; Tax_ID__c -> taxId; Payment_Terms__c -> paymentTerms.",
+        "functionalityIds": [
+          "fn-submit"
+        ],
+        "screenIds": [],
+        "relatedComponentIds": [
+          "tc-api"
+        ],
+        "metadata": {
+          "product": "MuleSoft Anypoint",
+          "flowName": "salesforce-supplier-onboarding",
+          "protocol": "HTTPS"
+        },
+        "columns": []
+      },
+      {
+        "id": "tc-sfobj",
+        "createdAt": "2026-10-06T09:00:00.000Z",
+        "updatedAt": "2026-10-06T09:00:00.000Z",
+        "applicationId": "app-sf",
+        "kind": "table",
+        "name": "Supplier_Onboarding_Request__c",
+        "description": "Salesforce object holding onboarding requests.",
+        "definition": "",
+        "functionalityIds": [
+          "fn-submit"
+        ],
+        "screenIds": [
+          "scr-request"
+        ],
+        "relatedComponentIds": [
+          "tc-mule"
+        ],
+        "metadata": {
+          "platform": "Salesforce"
+        },
+        "columns": [
+          {
+            "name": "Id",
+            "dataType": "Id",
+            "nullable": false,
+            "key": "PK",
+            "references": "",
+            "description": "Record ID."
+          },
+          {
+            "name": "Legal_Name__c",
+            "dataType": "Text(240)",
+            "nullable": false,
+            "key": "",
+            "references": "",
+            "description": "Legal name."
+          },
+          {
+            "name": "Tax_ID__c",
+            "dataType": "Text(30)",
+            "nullable": false,
+            "key": "",
+            "references": "",
+            "description": "Tax ID."
+          },
+          {
+            "name": "Status__c",
+            "dataType": "Picklist",
+            "nullable": false,
+            "key": "",
+            "references": "",
+            "description": "Request status."
+          }
+        ]
+      }
+    ],
+    "projects": [
+      {
+        "id": "proj-supplier",
+        "createdAt": "2026-10-06T09:00:00.000Z",
+        "updatedAt": "2026-10-06T09:00:00.000Z",
+        "name": "Supplier Onboarding Modernization",
+        "description": "Improve supplier onboarding from Salesforce through Oracle EBS with traceable requirements, testing and defect governance.",
+        "status": "active",
+        "priority": "high",
+        "owner": "Lead Business Analyst",
+        "sponsor": "Head of Procurement",
+        "targetDate": "2026-11-30",
+        "applicationIds": [
+          "app-ebs",
+          "app-sf"
+        ],
+        "moduleIds": [
+          "mod-ap",
+          "mod-onboard"
+        ],
+        "functionalityIds": [
+          "fn-create",
+          "fn-submit"
+        ],
+        "notes": [
+          {
+            "id": "note-risk",
+            "kind": "risk",
+            "text": "Integration timeouts may leave onboarding requests pending.",
+            "createdAt": "2026-10-06T09:00:00.000Z"
+          },
+          {
+            "id": "note-decision",
+            "kind": "decision",
+            "text": "Duplicate Tax ID must block supplier creation.",
+            "createdAt": "2026-10-06T09:00:00.000Z"
+          }
+        ]
+      }
+    ],
+    "requirements": [
+      {
+        "id": "req-epic",
+        "createdAt": "2026-10-06T09:00:00.000Z",
+        "updatedAt": "2026-10-06T09:00:00.000Z",
+        "projectId": "proj-supplier",
+        "kind": "epic",
+        "title": "Supplier onboarding automation",
+        "description": "Automate supplier onboarding from Salesforce into Oracle EBS.",
+        "acceptanceCriteria": [
+          "Approved onboarding requests can be submitted to EBS.",
+          "Failures remain visible and traceable."
+        ],
+        "status": "approved",
+        "functionalityIds": [
+          "fn-submit",
+          "fn-create"
+        ],
+        "priority": "high"
+      },
+      {
+        "id": "req-feature",
+        "createdAt": "2026-10-06T09:00:00.000Z",
+        "updatedAt": "2026-10-06T09:00:00.000Z",
+        "projectId": "proj-supplier",
+        "kind": "feature",
+        "title": "Supplier creation integration",
+        "description": "Create an EBS supplier from a completed Salesforce onboarding request.",
+        "acceptanceCriteria": [
+          "Supplier creation is mapped to the EBS API.",
+          "Successful creation returns the EBS vendor ID."
+        ],
+        "status": "approved",
+        "parentId": "req-epic",
+        "functionalityIds": [
+          "fn-submit",
+          "fn-create"
+        ],
+        "priority": "high"
+      },
+      {
+        "id": "req-create",
+        "createdAt": "2026-10-06T09:00:00.000Z",
+        "updatedAt": "2026-10-06T09:00:00.000Z",
+        "projectId": "proj-supplier",
+        "kind": "user-story",
+        "title": "Create supplier from onboarding request",
+        "description": "As a procurement user, I want to submit a completed onboarding request so that a supplier can be created in Oracle EBS without re-keying data.",
+        "acceptanceCriteria": [
+          "Given mandatory fields are complete, submission sends the request through MuleSoft to the EBS Supplier API.",
+          "Given EBS accepts the request, the onboarding request stores the returned vendor ID.",
+          "The Tax ID is passed unchanged from Salesforce to EBS."
+        ],
+        "status": "approved",
+        "parentId": "req-feature",
+        "functionalityIds": [
+          "fn-submit",
+          "fn-create"
+        ],
+        "priority": "high"
+      },
+      {
+        "id": "req-duplicate",
+        "createdAt": "2026-10-06T09:00:00.000Z",
+        "updatedAt": "2026-10-06T09:00:00.000Z",
+        "projectId": "proj-supplier",
+        "kind": "user-story",
+        "title": "Block duplicate supplier by Tax ID",
+        "description": "As an AP specialist, I want duplicate Tax IDs to be blocked so duplicate supplier records are not created.",
+        "acceptanceCriteria": [
+          "An existing Tax ID blocks creation.",
+          "The existing supplier is identified in the error response.",
+          "No new AP_SUPPLIERS row is created."
+        ],
+        "status": "approved",
+        "parentId": "req-feature",
+        "functionalityIds": [
+          "fn-create"
+        ],
+        "priority": "high"
+      },
+      {
+        "id": "req-audit",
+        "createdAt": "2026-10-06T09:00:00.000Z",
+        "updatedAt": "2026-10-06T09:00:00.000Z",
+        "projectId": "proj-supplier",
+        "kind": "non-functional",
+        "title": "Audit supplier integration failures",
+        "description": "Integration failures must be traceable for support and audit.",
+        "acceptanceCriteria": [
+          "Each failed request has a correlation identifier.",
+          "Failure status and timestamp are retained."
+        ],
+        "status": "approved",
+        "functionalityIds": [
+          "fn-submit"
+        ],
+        "priority": "medium"
+      }
+    ],
+    "artifacts": [
+      {
+        "id": "art-transcript",
+        "createdAt": "2026-10-06T09:00:00.000Z",
+        "updatedAt": "2026-10-06T09:00:00.000Z",
+        "projectId": "proj-supplier",
+        "kind": "transcript",
+        "title": "Supplier onboarding discovery transcript",
+        "content": "We need procurement users to submit supplier requests in Salesforce. Tax ID is mandatory. If the Tax ID already exists in Oracle EBS, the request must be blocked and the existing supplier identified. Integration failures must remain visible. The business also wants the vendor ID returned to Salesforce after successful creation.",
+        "version": 1,
+        "status": "approved",
+        "approvals": []
+      },
+      {
+        "id": "art-frd",
+        "createdAt": "2026-10-06T09:00:00.000Z",
+        "updatedAt": "2026-10-06T09:00:00.000Z",
+        "projectId": "proj-supplier",
+        "kind": "frd",
+        "title": "Supplier Onboarding FRD - Test Fixture",
+        "content": "# Supplier Onboarding\\n\\n## Objective\\nAutomate supplier creation from Salesforce into Oracle EBS.\\n\\n## Rules\\n- Tax ID is mandatory.\\n- Duplicate Tax ID blocks creation.\\n- Successful creation returns the EBS vendor ID.\\n- Integration failures remain visible and traceable.",
+        "version": 1,
+        "status": "approved",
+        "approvals": [
+          {
+            "role": "business-analyst",
+            "approver": "Lead Business Analyst",
+            "decision": "approved",
+            "decidedAt": "2026-10-06T09:00:00.000Z"
+          }
+        ]
+      },
+      {
+        "id": "art-rtm",
+        "createdAt": "2026-10-06T09:00:00.000Z",
+        "updatedAt": "2026-10-06T09:00:00.000Z",
+        "projectId": "proj-supplier",
+        "kind": "rtm",
+        "title": "Supplier Onboarding RTM",
+        "content": "Requirement -> User Story -> Technical Component -> Test Case -> Defect\\n\\nCreate supplier -> Pass\\nDuplicate supplier -> Fail -> Duplicate defect\\nAudit integration failures -> Not Run -> Timeout defect",
+        "version": 1,
+        "status": "approved",
+        "approvals": []
+      }
+    ],
+    "testCases": [
+      {
+        "id": "test-create",
+        "createdAt": "2026-10-06T09:00:00.000Z",
+        "updatedAt": "2026-10-06T09:00:00.000Z",
+        "projectId": "proj-supplier",
+        "requirementIds": [
+          "req-create"
+        ],
+        "level": "sit",
+        "scenario": "Create supplier successfully from Salesforce onboarding request",
+        "steps": [
+          "Create a Salesforce onboarding request with a new Tax ID.",
+          "Submit the request.",
+          "Verify MuleSoft maps the request to the EBS Supplier API.",
+          "Verify EBS creates the supplier.",
+          "Verify the vendor ID is returned to Salesforce."
+        ],
+        "expectedResult": "A supplier is created and the returned vendor ID is stored against the onboarding request.",
+        "actualResult": "Supplier created and vendor ID returned successfully.",
+        "status": "passed",
+        "priority": "high"
+      },
+      {
+        "id": "test-duplicate",
+        "createdAt": "2026-10-06T09:00:00.000Z",
+        "updatedAt": "2026-10-06T09:00:00.000Z",
+        "projectId": "proj-supplier",
+        "requirementIds": [
+          "req-duplicate"
+        ],
+        "level": "sit",
+        "scenario": "Block duplicate supplier by Tax ID",
+        "steps": [
+          "Create an onboarding request using an existing Tax ID.",
+          "Submit the request.",
+          "Inspect the EBS response and AP_SUPPLIERS table.",
+          "Verify the Salesforce request status and error details."
+        ],
+        "expectedResult": "Creation is blocked, the existing supplier is identified, and no new AP_SUPPLIERS row is created.",
+        "actualResult": "Creation blocked, but the Salesforce response did not identify the existing supplier.",
+        "status": "failed",
+        "priority": "high"
+      },
+      {
+        "id": "test-api",
+        "createdAt": "2026-10-06T09:00:00.000Z",
+        "updatedAt": "2026-10-06T09:00:00.000Z",
+        "projectId": "proj-supplier",
+        "requirementIds": [
+          "req-create"
+        ],
+        "level": "regression",
+        "scenario": "Supplier API preserves Tax ID mapping",
+        "steps": [
+          "Submit a valid onboarding request.",
+          "Capture the outbound EBS API payload.",
+          "Compare Tax ID with the Salesforce source value."
+        ],
+        "expectedResult": "The Tax ID is passed unchanged.",
+        "actualResult": "Tax ID matched source value.",
+        "status": "passed",
+        "priority": "medium"
+      },
+      {
+        "id": "test-timeout",
+        "createdAt": "2026-10-06T09:00:00.000Z",
+        "updatedAt": "2026-10-06T09:00:00.000Z",
+        "projectId": "proj-supplier",
+        "requirementIds": [
+          "req-audit"
+        ],
+        "level": "uat",
+        "scenario": "Integration timeout remains traceable",
+        "steps": [
+          "Simulate an EBS API timeout.",
+          "Verify Salesforce request status.",
+          "Capture correlation identifier and timestamp."
+        ],
+        "expectedResult": "The request remains visible with correlation ID and timestamp.",
+        "actualResult": "",
+        "status": "not-run",
+        "priority": "medium"
+      }
+    ],
+    "defects": [
+      {
+        "id": "def-duplicate",
+        "createdAt": "2026-10-06T09:00:00.000Z",
+        "updatedAt": "2026-10-06T09:00:00.000Z",
+        "projectId": "proj-supplier",
+        "title": "Duplicate supplier error does not identify existing supplier",
+        "description": "When a duplicate Tax ID is submitted, EBS blocks creation but the Salesforce response only shows a generic duplicate error. The existing supplier/vendor ID is not returned.",
+        "severity": "high",
+        "priority": "high",
+        "status": "open",
+        "assignedTo": "Integration Team",
+        "requirementId": "req-duplicate",
+        "testCaseId": "test-duplicate",
+        "technicalComponentIds": [
+          "tc-api",
+          "tc-proc",
+          "tc-mule",
+          "tc-suppliers"
+        ],
+        "screenshots": []
+      },
+      {
+        "id": "def-timeout",
+        "createdAt": "2026-10-06T09:00:00.000Z",
+        "updatedAt": "2026-10-06T09:00:00.000Z",
+        "projectId": "proj-supplier",
+        "title": "Integration timeout loses correlation ID",
+        "description": "When the EBS Supplier API times out, the Salesforce onboarding request shows Integration Pending but no correlation identifier is available to support.",
+        "severity": "medium",
+        "priority": "medium",
+        "status": "in-progress",
+        "assignedTo": "CRM Integration Team",
+        "requirementId": "req-audit",
+        "testCaseId": "test-timeout",
+        "technicalComponentIds": [
+          "tc-mule",
+          "tc-api"
+        ],
+        "screenshots": []
+      }
+    ],
+    "meetings": [
+      {
+        "id": "meet-discovery",
+        "createdAt": "2026-10-06T09:00:00.000Z",
+        "updatedAt": "2026-10-06T09:00:00.000Z",
+        "projectId": "proj-supplier",
+        "title": "Supplier onboarding discovery",
+        "meetingDate": "2026-10-02",
+        "attendees": [
+          "Lead Business Analyst",
+          "Head of Procurement",
+          "AP Functional Lead",
+          "CRM Platform Lead",
+          "Integration Architect"
+        ],
+        "source": "paste",
+        "fileName": "supplier-onboarding-discovery.txt",
+        "transcript": "We need procurement users to submit supplier requests in Salesforce. Tax ID is mandatory. If the Tax ID already exists in Oracle EBS, the request must be blocked and the existing supplier identified. Integration failures must remain visible. The business also wants the vendor ID returned to Salesforce after successful creation.",
+        "status": "processed",
+        "error": "",
+        "summary": "Agreed supplier onboarding flow, duplicate prevention and integration traceability.",
+        "keyPoints": [
+          "Tax ID is mandatory",
+          "Duplicate Tax ID blocks creation",
+          "Vendor ID returns to Salesforce",
+          "Integration failures remain visible"
+        ],
+        "decisions": [
+          {
+            "text": "Duplicate Tax ID is a hard business validation.",
+            "owner": "AP Functional Lead"
+          },
+          {
+            "text": "Vendor ID is returned after successful creation.",
+            "owner": "Integration Architect"
+          }
+        ],
+        "actionItems": [
+          {
+            "task": "Confirm EBS duplicate response contract",
+            "assignee": "Integration Architect",
+            "due": "2026-10-09",
+            "done": false
+          },
+          {
+            "task": "Prepare UAT scenarios",
+            "assignee": "Lead Business Analyst",
+            "due": "2026-10-10",
+            "done": false
+          }
+        ],
+        "openQuestions": [
+          "Exact retention period for integration audit records"
+        ],
+        "model": "gemini-flash-latest",
+        "processedAt": "2026-10-06T09:00:00.000Z"
+      }
+    ],
+    "candidates": [
+      {
+        "id": "cand-duplicate",
+        "createdAt": "2026-10-06T09:00:00.000Z",
+        "updatedAt": "2026-10-06T09:00:00.000Z",
+        "projectId": "proj-supplier",
+        "meetingId": "meet-discovery",
+        "kind": "business-rule",
+        "title": "Duplicate Tax ID must block supplier creation",
+        "description": "If the Tax ID already exists in EBS, the onboarding request must be rejected and the existing supplier identified.",
+        "acceptanceCriteria": [
+          "Existing Tax ID blocks creation",
+          "Existing supplier is identified"
+        ],
+        "priority": "high",
+        "sourceQuote": "If the Tax ID already exists in Oracle EBS, the request must be blocked and the existing supplier identified.",
+        "functionalityIds": [
+          "fn-create"
+        ],
+        "decision": "accepted",
+        "requirementId": ""
+      }
+    ],
+    "screenMedia": [],
+    "settings": []
+  }
+}
