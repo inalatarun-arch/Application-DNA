@@ -29,7 +29,7 @@ export default function AppShell() {
     const onKey = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
         e.preventDefault();
-        setSearchOpen((o) => !o);
+        setCopilotOpen((o) => !o);
       }
     };
     window.addEventListener('keydown', onKey);
