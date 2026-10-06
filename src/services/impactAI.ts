@@ -28,7 +28,7 @@ const SCHEMA = {
   properties: {
     summary: { type: 'STRING' },
     functional: { type: 'ARRAY', items: { type: 'OBJECT', properties: { area: { type: 'STRING' }, description: { type: 'STRING' }, severity: { type: 'STRING' }, impactedPart: { type: 'STRING' }, currentState: { type: 'STRING' }, proposedChange: { type: 'STRING' }, rationale: { type: 'STRING' } }, required: ['area', 'description'] } },
-    technical: { type: 'ARRAY', items: { type: 'OBJECT', properties: { area: { type: 'STRING' }, description: { type: 'STRING' }, severity: { type: 'STRING' } }, required: ['area', 'description'] } },
+    technical: { type: 'ARRAY', items: { type: 'OBJECT', properties: { area: { type: 'STRING' }, description: { type: 'STRING' }, severity: { type: 'STRING' }, impactedPart: { type: 'STRING' }, currentState: { type: 'STRING' }, proposedChange: { type: 'STRING' }, rationale: { type: 'STRING' } }, required: ['area', 'description'] } },
     risks: { type: 'ARRAY', items: { type: 'OBJECT', properties: { risk: { type: 'STRING' }, mitigation: { type: 'STRING' }, severity: { type: 'STRING' } }, required: ['risk'] } },
     gaps: { type: 'ARRAY', items: { type: 'OBJECT', properties: { gap: { type: 'STRING' }, recommendation: { type: 'STRING' } }, required: ['gap'] } },
   },
