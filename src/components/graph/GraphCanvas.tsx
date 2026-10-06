@@ -6,6 +6,11 @@ import {
   forceSimulation,
   forceX,
   forceY,
+  type ForceCollide,
+  type ForceLink,
+  type ForceManyBody,
+  type ForceX,
+  type ForceY,
   type Simulation,
   type SimulationLinkDatum,
   type SimulationNodeDatum,
@@ -41,6 +46,10 @@ interface Props {
   highlightIds: Set<string> | null;
   /** Changing this re-fits the view once the layout is ready. */
   fitKey: string;
+  /** Distance multiplier: 1 is compact, larger spreads nodes apart. */
+  spacing: number;
+  /** Increment to throw away remembered positions and lay the graph out from scratch. */
+  relayoutToken: number;
   theme: 'light' | 'dark';
   ariaLabel: string;
   onSelect: (id: string | null) => void;
@@ -49,8 +58,72 @@ interface Props {
 const LINK_DISTANCE: Record<EdgeKind, number> = { contains: 36, uses: 64, depends: 58, related: 90, implements: 64 };
 const LINK_STRENGTH: Record<EdgeKind, number> = { contains: 0.7, uses: 0.25, depends: 0.35, related: 0.1, implements: 0.3 };
 const BASE_RADIUS: Record<NodeType, number> = { application: 15, module: 11, screen: 9, functionality: 7, component: 7, requirement: 8 };
+/** How far each shape reaches from its centre, as a multiple of the node radius. Used so shapes never overlap. */
+const EXTENT: Record<NodeType, number> = { application: 1, module: 1, screen: 1.45, functionality: 1, component: 1.2, requirement: 1 };
+const extentOf = (n: GNode) => n.r * EXTENT[n.data.type];
+const gapFor = (spacing: number) => 4 + 3 * Math.max(0, spacing - 1);
 const MIN_K = 0.1;
 const MAX_K = 6;
+
+/**
+ * Pushes overlapping nodes apart until none touch (or the iteration limit is hit). Uses a grid so large graphs stay fast.
+ * Returns true when anything moved. Nodes being dragged (fx/fy set) are never moved.
+ */
+function separate(list: GNode[], gap: number, iterations: number): boolean {
+  if (list.length < 2) return false;
+  let movedAny = false;
+  const maxExtent = list.reduce((m, n) => Math.max(m, extentOf(n)), 0);
+  const cell = maxExtent * 2 + gap;
+  for (let it = 0; it < iterations; it++) {
+    const grid = new Map<string, GNode[]>();
+    for (const n of list) {
+      const key = `${Math.floor((n.x ?? 0) / cell)},${Math.floor((n.y ?? 0) / cell)}`;
+      const bucket = grid.get(key);
+      if (bucket) bucket.push(n);
+      else grid.set(key, [n]);
+    }
+    let moved = false;
+    for (const a of list) {
+      const cx = Math.floor((a.x ?? 0) / cell);
+      const cy = Math.floor((a.y ?? 0) / cell);
+      for (let gx = cx - 1; gx <= cx + 1; gx++) {
+        for (let gy = cy - 1; gy <= cy + 1; gy++) {
+          const bucket = grid.get(`${gx},${gy}`);
+          if (!bucket) continue;
+          for (const b of bucket) {
+            if ((b.index ?? 0) <= (a.index ?? 0)) continue;
+            let dx = (b.x ?? 0) - (a.x ?? 0);
+            let dy = (b.y ?? 0) - (a.y ?? 0);
+            let dist = Math.hypot(dx, dy);
+            const min = extentOf(a) + extentOf(b) + gap;
+            if (dist >= min) continue;
+            const aPinned = a.fx != null;
+            const bPinned = b.fx != null;
+            if (aPinned && bPinned) continue;
+            if (dist < 0.01) {
+              const angle = (a.index ?? 0) * 2.399963;
+              dx = Math.cos(angle);
+              dy = Math.sin(angle);
+              dist = 1;
+            }
+            const total = min - dist + 0.02;
+            const ux = dx / dist;
+            const uy = dy / dist;
+            const shareA = aPinned ? 0 : bPinned ? 1 : 0.5;
+            a.x = (a.x ?? 0) - ux * total * shareA;
+            a.y = (a.y ?? 0) - uy * total * shareA;
+            b.x = (b.x ?? 0) + ux * total * (1 - shareA);
+            b.y = (b.y ?? 0) + uy * total * (1 - shareA);
+            moved = true;
+            movedAny = true;
+          }
+        }
+      }
+    }
+    if (!moved) break;
+  }
+  return movedAny;
+}
 
 const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v));
 const radiusOf = (d: GraphNodeData) => BASE_RADIUS[d.type] + Math.min(6, Math.sqrt(d.degree)) * 0.9;
@@ -200,6 +273,17 @@ const GraphCanvas = forwardRef<GraphCanvasHandle, Props>(function GraphCanvas(pr
   const raf = useRef(0);
   const drawRef = useRef<() => void>(() => undefined);
   const fitKeyRef = useRef<string | null>(null);
+  const forces = useRef<{
+    link: ForceLink<GNode, GLink>;
+    charge: ForceManyBody<GNode>;
+    collide: ForceCollide<GNode>;
+    x: ForceX<GNode>;
+    y: ForceY<GNode>;
+  } | null>(null);
+  const lastSpacing = useRef(props.spacing);
+  const spacingRef = useRef(props.spacing);
+  const refitOnEnd = useRef(false);
+  const relayoutRef = useRef(props.relayoutToken);
   const live = useRef(props);
   live.current = props;
   const pointers = useRef(new Map<number, { x: number; y: number }>());
@@ -332,6 +416,7 @@ const GraphCanvas = forwardRef<GraphCanvasHandle, Props>(function GraphCanvas(pr
     ctx.font = '500 11px "Inter Variable", Inter, system-ui, sans-serif';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'top';
+    const labels: Array<{ n: GNode; sx: number; rad: number; sy: number; on: boolean; pri: number }> = [];
     for (const n of list) {
       const sx = (n.x ?? 0) * k + tx;
       const sy = (n.y ?? 0) * k + ty;
@@ -355,15 +440,27 @@ const GraphCanvas = forwardRef<GraphCanvasHandle, Props>(function GraphCanvas(pr
         n.id === hoverId ||
         (isOn && (active !== null || k >= 0.9 || n.data.type === 'application' || (k >= 0.55 && n.data.type === 'module')));
       if (showLabel) {
-        const text = n.data.label.length > 28 ? `${n.data.label.slice(0, 27)}…` : n.data.label;
-        const ly = sy + Math.max(rk, 2.5) + 4;
-        ctx.globalAlpha = isOn ? 1 : 0.3;
-        ctx.lineWidth = 3;
-        ctx.strokeStyle = pal.bg;
-        ctx.strokeText(text, sx, ly);
-        ctx.fillStyle = pal.text;
-        ctx.fillText(text, sx, ly);
+        const pri = isSel || n.id === hoverId ? 3 : n.data.type === 'application' ? 2 : n.data.type === 'module' ? 1.5 : 1 + Math.min(n.data.degree, 50) * 0.01;
+        labels.push({ n, sx, sy, rad: Math.max(rk, 2.5), on: isOn, pri });
       }
+    }
+
+    // Labels are placed most important first, and a label that would sit on top of one already drawn is skipped.
+    labels.sort((a, b) => b.pri - a.pri);
+    const taken: number[][] = [];
+    for (const L of labels) {
+      const text = L.n.data.label.length > 28 ? `${L.n.data.label.slice(0, 27)}…` : L.n.data.label;
+      const tw = ctx.measureText(text).width + 8;
+      const x0 = L.sx - tw / 2;
+      const y0 = L.sy + L.rad + 3;
+      if (L.pri < 3 && taken.some((t) => x0 < t[2] && x0 + tw > t[0] && y0 < t[3] && y0 + 15 > t[1])) continue;
+      taken.push([x0, y0, x0 + tw, y0 + 15]);
+      ctx.globalAlpha = L.on ? 1 : 0.3;
+      ctx.lineWidth = 3;
+      ctx.strokeStyle = pal.bg;
+      ctx.strokeText(text, L.sx, y0 + 1);
+      ctx.fillStyle = pal.text;
+      ctx.fillText(text, L.sx, y0 + 1);
     }
     ctx.globalAlpha = 1;
   };
@@ -403,41 +500,61 @@ const GraphCanvas = forwardRef<GraphCanvasHandle, Props>(function GraphCanvas(pr
   // ---------------------------------------------------------------- layout
   useEffect(() => {
     simRef.current?.stop();
+    if (relayoutRef.current !== props.relayoutToken) {
+      // Start over: forget where everything was.
+      relayoutRef.current = props.relayoutToken;
+      positions.current.clear();
+      gnodes.current = [];
+      fitKeyRef.current = null;
+      refitOnEnd.current = true;
+    }
     for (const n of gnodes.current) {
       if (n.x !== undefined && n.y !== undefined) positions.current.set(n.id, { x: n.x, y: n.y });
     }
     const prev = positions.current;
+    const spacing = props.spacing;
+    spacingRef.current = spacing;
+    lastSpacing.current = spacing;
+
     const list: GNode[] = props.nodes.map((d, i) => {
       const p = prev.get(d.id);
       const angle = i * 2.399963; // golden-angle spiral for nodes without a remembered position
-      const rad = 14 * Math.sqrt(i + 1);
+      const rad = 14 * Math.sqrt(i + 1) * spacing;
       return { id: d.id, data: d, r: radiusOf(d), x: p ? p.x : Math.cos(angle) * rad, y: p ? p.y : Math.sin(angle) * rad };
     });
     const links: GLink[] = props.edges.map((e) => ({ source: e.source, target: e.target, kind: e.kind }));
 
-    const sim = forceSimulation<GNode>(list)
-      .force(
-        'link',
-        forceLink<GNode, GLink>(links)
-          .id((d) => d.id)
-          .distance((l) => LINK_DISTANCE[l.kind])
-          .strength((l) => LINK_STRENGTH[l.kind]),
-      )
-      .force('charge', forceManyBody<GNode>().strength((d) => -40 - d.r * 4))
-      .force('collide', forceCollide<GNode>().radius((d) => d.r + 3))
-      .force('x', forceX<GNode>(0).strength(0.04))
-      .force('y', forceY<GNode>(0).strength(0.04))
-      .velocityDecay(0.4)
-      .stop();
+    const link = forceLink<GNode, GLink>(links)
+      .id((d) => d.id)
+      .distance((l) => LINK_DISTANCE[l.kind] * spacing)
+      .strength((l) => LINK_STRENGTH[l.kind]);
+    const charge = forceManyBody<GNode>().strength((d) => (-40 - d.r * 4) * Math.pow(spacing, 1.25));
+    const collide = forceCollide<GNode>()
+      .radius((d) => extentOf(d) + gapFor(spacing) / 2 + 1)
+      .iterations(3);
+    const fx = forceX<GNode>(0).strength(0.05 / spacing);
+    const fy = forceY<GNode>(0).strength(0.05 / spacing);
+    forces.current = { link, charge, collide, x: fx, y: fy };
+
+    const sim = forceSimulation<GNode>(list).force('link', link).force('charge', charge).force('collide', collide).force('x', fx).force('y', fy).velocityDecay(0.4).stop();
 
     const fresh = list.filter((n) => !prev.has(n.id)).length;
-    const preTicks = fresh > list.length * 0.5 ? 160 : 30;
+    const preTicks = fresh > list.length * 0.5 ? Math.min(260, 120 + Math.round(list.length * 0.4)) : 30;
     for (let i = 0; i < preTicks; i++) sim.tick();
+    separate(list, gapFor(spacing), 80);
 
     gnodes.current = list;
     glinks.current = links;
     simRef.current = sim;
     sim.on('tick', schedule);
+    sim.on('end', () => {
+      // Once the layout settles, make sure nothing still touches, then re-fit if the spacing was just changed.
+      if (separate(gnodes.current, gapFor(spacingRef.current), 40)) schedule();
+      if (refitOnEnd.current) {
+        refitOnEnd.current = false;
+        fit();
+      }
+    });
     sim.alpha(fresh > 0 ? 0.2 : 0.05).restart();
 
     if (fitKeyRef.current !== props.fitKey && list.length > 0) {
@@ -449,7 +566,24 @@ const GraphCanvas = forwardRef<GraphCanvasHandle, Props>(function GraphCanvas(pr
       sim.stop();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [props.nodes, props.edges, props.fitKey]);
+  }, [props.nodes, props.edges, props.fitKey, props.relayoutToken]);
+
+  // Changing the spacing re-tunes the running simulation so nodes glide to their new distances.
+  useEffect(() => {
+    const f = forces.current;
+    const sim = simRef.current;
+    if (!f || !sim || lastSpacing.current === props.spacing) return;
+    const spacing = props.spacing;
+    lastSpacing.current = spacing;
+    spacingRef.current = spacing;
+    f.link.distance((l) => LINK_DISTANCE[l.kind] * spacing);
+    f.charge.strength((d) => (-40 - d.r * 4) * Math.pow(spacing, 1.25));
+    f.collide.radius((d) => extentOf(d) + gapFor(spacing) / 2 + 1);
+    f.x.strength(0.05 / spacing);
+    f.y.strength(0.05 / spacing);
+    refitOnEnd.current = true;
+    sim.alpha(0.9).restart();
+  }, [props.spacing]);
 
   useEffect(() => {
     schedule();

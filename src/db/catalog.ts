@@ -107,6 +107,7 @@ export async function deleteApplication(id: string): Promise<void> {
     [db.applications, db.modules, db.screens, db.screenMedia, db.functionalities, db.technicalComponents, db.projects],
     async () => {
       const screenIds = await db.screens.where('applicationId').equals(id).primaryKeys();
+      const moduleIds = await db.modules.where('applicationId').equals(id).primaryKeys();
       const functionalityIds = await db.functionalities.where('applicationId').equals(id).primaryKeys();
       const componentIds = await db.technicalComponents.where('applicationId').equals(id).primaryKeys();
 
@@ -120,10 +121,10 @@ export async function deleteApplication(id: string): Promise<void> {
       await db.screens.where('applicationId').equals(id).delete();
       await db.modules.where('applicationId').equals(id).delete();
       await db.projects
-        .where('applicationIds')
-        .equals(id)
+        .filter((p) => (p.applicationIds ?? []).includes(id) || (p.moduleIds ?? []).some((m) => moduleIds.includes(m)))
         .modify((p) => {
-          p.applicationIds = p.applicationIds.filter((x) => x !== id);
+          p.applicationIds = (p.applicationIds ?? []).filter((x) => x !== id);
+          p.moduleIds = (p.moduleIds ?? []).filter((m) => !moduleIds.includes(m));
         });
       await db.applications.delete(id);
     },
@@ -169,7 +170,7 @@ export async function createModule(applicationId: string, name: string, descript
 }
 
 export async function deleteModule(id: string): Promise<void> {
-  await db.transaction('rw', [db.modules, db.screens, db.screenMedia, db.functionalities, db.technicalComponents], async () => {
+  await db.transaction('rw', [db.modules, db.screens, db.screenMedia, db.functionalities, db.technicalComponents, db.projects], async () => {
     const screenIds = await db.screens.where('moduleId').equals(id).primaryKeys();
     if (screenIds.length) {
       const functionalityIds = await db.functionalities.where('screenId').anyOf(screenIds).primaryKeys();
@@ -178,6 +179,11 @@ export async function deleteModule(id: string): Promise<void> {
       await db.screenMedia.where('screenId').anyOf(screenIds).delete();
       await db.screens.bulkDelete(screenIds);
     }
+    await db.projects
+      .filter((p) => (p.moduleIds ?? []).includes(id))
+      .modify((p) => {
+        p.moduleIds = p.moduleIds.filter((m) => m !== id);
+      });
     await db.modules.delete(id);
   });
 }

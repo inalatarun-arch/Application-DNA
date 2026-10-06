@@ -4,19 +4,12 @@ import { nowIso } from '@/db/db';
 
 export type SaveState = 'idle' | 'dirty' | 'saving' | 'saved' | 'error';
 
-interface FieldRow {
-  field: string;
-  description: string;
+/** A list row whose text fields are all blank (a row that was added but never filled in). */
+function isBlankRow(v: unknown): boolean {
+  if (typeof v !== 'object' || v === null || Array.isArray(v)) return false;
+  const strings = Object.values(v).filter((x): x is string => typeof x === 'string');
+  return strings.length > 0 && strings.every((s) => !s.trim());
 }
-const isFieldRow = (v: unknown): v is FieldRow =>
-  typeof v === 'object' && v !== null && typeof (v as FieldRow).field === 'string' && typeof (v as FieldRow).description === 'string';
-
-interface ColumnRow {
-  name: string;
-  dataType: string;
-}
-const isColumnRow = (v: unknown): v is ColumnRow =>
-  typeof v === 'object' && v !== null && typeof (v as ColumnRow).name === 'string' && typeof (v as ColumnRow).dataType === 'string' && 'nullable' in v;
 
 /**
  * Removes blank list rows from what is persisted. The on-screen draft keeps them so a row
@@ -24,9 +17,7 @@ const isColumnRow = (v: unknown): v is ColumnRow =>
  */
 function clean(value: unknown): unknown {
   if (Array.isArray(value)) {
-    return value
-      .map(clean)
-      .filter((item) => (typeof item === 'string' ? item.trim() !== '' : !((isFieldRow(item) && !item.field.trim() && !item.description.trim()) || (isColumnRow(item) && !item.name.trim()))));
+    return value.map(clean).filter((item) => (typeof item === 'string' ? item.trim() !== '' : !isBlankRow(item)));
   }
   if (value && typeof value === 'object') {
     return Object.fromEntries(Object.entries(value).map(([k, v]) => [k, clean(v)]));
@@ -37,6 +28,8 @@ function clean(value: unknown): unknown {
 /**
  * Local draft + debounced write-through to Dexie.
  * - `update(patch)` changes the draft immediately and schedules a save.
+ * - Only the fields that were changed are written, so another editor (or a background job such as the
+ *   transcript pipeline) updating other fields of the same record is never overwritten.
  * - Pending changes are flushed on unmount (e.g. navigating away) and when the page is hidden.
  * - Uses `update`, not `put`, so a record deleted in the meantime is never resurrected.
  * Mount the consumer with `key={record.id}` so switching records resets the draft.
@@ -46,6 +39,7 @@ export function useAutosave<T extends { id: string }>(table: Table<T, string>, i
   const [state, setState] = useState<SaveState>('idle');
   const latest = useRef<T>(draft);
   const dirty = useRef(false);
+  const dirtyKeys = useRef<Set<string>>(new Set());
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const mounted = useRef(true);
 
@@ -56,12 +50,18 @@ export function useAutosave<T extends { id: string }>(table: Table<T, string>, i
     }
     if (!dirty.current) return;
     dirty.current = false;
+    const keys = [...dirtyKeys.current];
+    dirtyKeys.current = new Set();
     if (mounted.current) setState('saving');
     try {
-      const record = clean({ ...latest.current, updatedAt: nowIso() }) as T;
-      await table.update(record.id, record as never);
+      const source = latest.current as unknown as Record<string, unknown>;
+      const changes = clean(Object.fromEntries([...keys.map((k) => [k, source[k]] as const), ['updatedAt', nowIso()] as const]));
+      await table.update(latest.current.id, changes as never);
       if (mounted.current) setState(dirty.current ? 'dirty' : 'saved');
     } catch {
+      // Keep the changes so the next save retries them.
+      keys.forEach((k) => dirtyKeys.current.add(k));
+      dirty.current = true;
       if (mounted.current) setState('error');
     }
   }, [table]);
@@ -71,6 +71,7 @@ export function useAutosave<T extends { id: string }>(table: Table<T, string>, i
       const next = { ...latest.current, ...patch };
       latest.current = next;
       setDraft(next);
+      for (const k of Object.keys(patch)) dirtyKeys.current.add(k);
       dirty.current = true;
       setState('dirty');
       if (timer.current) clearTimeout(timer.current);

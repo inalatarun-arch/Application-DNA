@@ -23,6 +23,8 @@ const TABLE_LABELS: Record<string, string> = {
   functionalities: 'Functionalities',
   technicalComponents: 'Technical components',
   projects: 'Projects',
+  meetings: 'Meetings',
+  candidates: 'Requirement suggestions',
   requirements: 'Requirements',
   artifacts: 'Artifacts',
   testCases: 'Test cases',

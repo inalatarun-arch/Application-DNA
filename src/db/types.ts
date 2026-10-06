@@ -140,13 +140,20 @@ export interface ProjectNote {
   createdAt: string;
 }
 
+export type ProjectPriority = 'low' | 'medium' | 'high';
+
 export interface Project extends BaseEntity {
   name: string;
   description: string;
   status: ProjectStatus;
+  priority: ProjectPriority;
+  owner: string;
+  sponsor: string;
+  /** YYYY-MM-DD, or empty. */
+  targetDate: string;
   applicationIds: ID[];
+  moduleIds: ID[];
   functionalityIds: ID[];
-  sponsor?: string;
   notes: ProjectNote[];
 }
 
@@ -226,4 +233,59 @@ export interface SettingRecord {
   key: string;
   value: unknown;
   updatedAt: string;
+}
+
+// ---------- Project discovery: meetings and requirement suggestions ----------
+
+export interface MeetingDecision {
+  text: string;
+  owner: string;
+}
+
+export interface MeetingAction {
+  task: string;
+  assignee: string;
+  /** YYYY-MM-DD, or empty. */
+  due: string;
+  done: boolean;
+}
+
+export interface Meeting extends BaseEntity {
+  projectId: ID;
+  title: string;
+  /** YYYY-MM-DD */
+  meetingDate: string;
+  attendees: string[];
+  source: 'paste' | 'upload';
+  fileName: string;
+  transcript: string;
+  status: 'draft' | 'processed' | 'error';
+  error: string;
+  summary: string;
+  keyPoints: string[];
+  decisions: MeetingDecision[];
+  actionItems: MeetingAction[];
+  openQuestions: string[];
+  /** Model that produced the extraction. */
+  model: string;
+  processedAt: string;
+}
+
+export type CandidateDecision = 'pending' | 'accepted' | 'rejected' | 'committed';
+
+/** A requirement suggested by the AI, waiting for the business analyst's review. */
+export interface RequirementCandidate extends BaseEntity {
+  projectId: ID;
+  meetingId: ID;
+  kind: RequirementKind;
+  title: string;
+  description: string;
+  acceptanceCriteria: string[];
+  priority: 'low' | 'medium' | 'high';
+  /** Short verbatim excerpt from the transcript supporting the suggestion. */
+  sourceQuote: string;
+  functionalityIds: ID[];
+  decision: CandidateDecision;
+  /** Set once committed to the backlog. */
+  requirementId: ID | '';
 }

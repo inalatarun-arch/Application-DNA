@@ -30,3 +30,12 @@ export const PRESET_TYPES: Record<Exclude<Preset, 'custom'>, NodeType[]> = {
   functional: ['application', 'module', 'screen', 'functionality', 'requirement'],
   technical: ['application', 'component'],
 };
+
+/**
+ * Spacing that keeps a graph readable as it grows. Bigger graphs get proportionally more room between nodes;
+ * the canvas additionally guarantees that no two shapes overlap.
+ */
+export const autoSpacing = (nodeCount: number): number => Math.round(Math.min(3.5, Math.max(1, 0.85 + Math.sqrt(Math.max(0, nodeCount)) / 8)) * 100) / 100;
+
+export const MIN_SPACING = 0.5;
+export const MAX_SPACING = 4;

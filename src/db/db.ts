@@ -5,8 +5,10 @@ import type {
   Artifact,
   Defect,
   Functionality,
+  Meeting,
   Project,
   Requirement,
+  RequirementCandidate,
   Screen,
   ScreenMedia,
   SettingRecord,
@@ -15,7 +17,7 @@ import type {
 } from './types';
 
 /** Bump together with a new `this.version(n)` block when the schema changes. */
-export const DB_SCHEMA_VERSION = 3;
+export const DB_SCHEMA_VERSION = 4;
 
 export class EihDatabase extends Dexie {
   applications!: Table<Application, string>;
@@ -30,6 +32,8 @@ export class EihDatabase extends Dexie {
   testCases!: Table<TestCase, string>;
   defects!: Table<Defect, string>;
   settings!: Table<SettingRecord, string>;
+  meetings!: Table<Meeting, string>;
+  candidates!: Table<RequirementCandidate, string>;
 
   constructor() {
     super('eih');
@@ -54,6 +58,11 @@ export class EihDatabase extends Dexie {
     // v3: technical components can be linked to screens (multi-entry index for reverse lookups).
     this.version(3).stores({
       technicalComponents: 'id, applicationId, kind, name, *functionalityIds, *screenIds',
+    });
+    // v4: project discovery. Meeting transcripts with their AI notes, and requirement suggestions awaiting review.
+    this.version(4).stores({
+      meetings: 'id, projectId, meetingDate, status',
+      candidates: 'id, projectId, meetingId, decision',
     });
   }
 }

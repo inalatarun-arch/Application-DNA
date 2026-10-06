@@ -1,13 +1,14 @@
 import { useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Download, Maximize, Network, Search, ZoomIn, ZoomOut } from 'lucide-react';
+import { Download, Maximize, Network, RotateCcw, Search, SlidersHorizontal, X, ZoomIn, ZoomOut } from 'lucide-react';
 import PageHeader from '@/components/ui/PageHeader';
 import EmptyState from '@/components/ui/EmptyState';
 import GraphCanvas, { type GraphCanvasHandle } from '@/components/graph/GraphCanvas';
 import NodeDrawer from '@/components/graph/NodeDrawer';
-import { NODE_META, NODE_ORDER, PRESET_TYPES, type NodeType, type Preset } from '@/config/graph';
+import { autoSpacing, MAX_SPACING, MIN_SPACING, NODE_META, NODE_ORDER, PRESET_TYPES, type NodeType, type Preset } from '@/config/graph';
 import { useTheme } from '@/context/ThemeContext';
 import { useGraphSource } from '@/hooks/useGraphSource';
+import { usePersistentState } from '@/hooks/usePersistentState';
 import { buildGraph, filterGraph, neighborMap } from '@/lib/graphModel';
 import { cn } from '@/lib/cn';
 import KnowledgeTabs from './KnowledgeTabs';
@@ -29,12 +30,18 @@ export default function KnowledgeGraphPage() {
   const [hierarchy, setHierarchy] = useState(true);
   const [query, setQuery] = useState('');
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [auto, setAuto] = usePersistentState('eih.graph.autoSpacing', true);
+  const [manual, setManual] = usePersistentState('eih.graph.spacing', 1.6);
+  const [relayout, setRelayout] = useState(0);
+  const [layoutOpen, setLayoutOpen] = useState(false);
 
   const graph = useMemo(() => (source ? buildGraph(source) : null), [source]);
   const filtered = useMemo(
     () => (graph ? filterGraph(graph, { types, hierarchy, applicationId: appFilter }) : { nodes: [], edges: [] }),
     [graph, types, hierarchy, appFilter],
   );
+  // Auto spacing grows with the number of visible nodes; manual spacing is whatever the slider says.
+  const spacing = auto ? autoSpacing(filtered.nodes.length) : manual;
   const nodesById = useMemo(() => new Map(filtered.nodes.map((n) => [n.id, n])), [filtered.nodes]);
   const adjacency = useMemo(() => neighborMap(filtered.edges), [filtered.edges]);
   const counts = useMemo(() => {
@@ -162,6 +169,8 @@ export default function KnowledgeGraphPage() {
               selectedId={selected?.id ?? null}
               highlightIds={highlightIds}
               fitKey={fitKey}
+              spacing={spacing}
+              relayoutToken={relayout}
               theme={theme}
               ariaLabel={`Knowledge graph with ${filtered.nodes.length} nodes and ${filtered.edges.length} links. Use the search box to find and open nodes.`}
               onSelect={setSelectedId}
@@ -182,6 +191,57 @@ export default function KnowledgeGraphPage() {
                 </button>
               ))}
             </div>
+
+            <div className="absolute left-3 top-[11.5rem]">
+              <button type="button" onClick={() => setLayoutOpen((o) => !o)} aria-label="Layout and spacing" aria-expanded={layoutOpen} title="Layout and spacing" className="icon-btn border border-outline-variant bg-surface-lowest">
+                <SlidersHorizontal size={16} aria-hidden />
+              </button>
+            </div>
+
+            {layoutOpen && (
+              <div role="dialog" aria-label="Layout and spacing" className="absolute left-14 top-3 z-10 w-72 max-w-[calc(100%-4.5rem)] rounded border-2 border-primary bg-surface-lowest p-4">
+                <div className="mb-3 flex items-start justify-between gap-2">
+                  <h2 className="text-body-md font-semibold">Layout and spacing</h2>
+                  <button type="button" className="icon-btn -mr-2 -mt-2" onClick={() => setLayoutOpen(false)} aria-label="Close layout panel">
+                    <X size={16} aria-hidden />
+                  </button>
+                </div>
+                <label className="flex items-start gap-2 text-body-md">
+                  <input type="checkbox" className="mt-1" checked={auto} onChange={(e) => setAuto(e.target.checked)} />
+                  <span>
+                    Auto spacing
+                    <span className="field-hint block">Adds room as the graph grows so nodes never overlap. Now {spacing.toFixed(2)}× for {filtered.nodes.length} nodes.</span>
+                  </span>
+                </label>
+                <div className="mt-4">
+                  <label htmlFor="graph-spacing" className="field-label flex justify-between">
+                    <span>Distance between nodes</span>
+                    <span className="tabular-nums">{spacing.toFixed(1)}×</span>
+                  </label>
+                  <input
+                    id="graph-spacing"
+                    type="range"
+                    className="w-full"
+                    min={MIN_SPACING}
+                    max={MAX_SPACING}
+                    step={0.1}
+                    value={Math.min(MAX_SPACING, Math.max(MIN_SPACING, spacing))}
+                    onChange={(e) => {
+                      setAuto(false);
+                      setManual(Number(e.target.value));
+                    }}
+                  />
+                  <p className="field-hint">Moving the slider switches to manual spacing. Nodes are still kept from overlapping.</p>
+                </div>
+                <div className="mt-4 flex flex-wrap gap-2">
+                  <button type="button" className="btn btn-secondary px-3 py-1.5" onClick={() => setRelayout((n) => n + 1)}>
+                    <RotateCcw size={14} aria-hidden />
+                    Re-layout
+                  </button>
+                  <button type="button" className="btn btn-secondary px-3 py-1.5" onClick={() => setAuto(true)} disabled={auto}>Reset to auto</button>
+                </div>
+              </div>
+            )}
 
             <p className="pointer-events-none absolute bottom-3 left-3 hidden text-label-md font-normal text-on-surface-variant sm:block">
               {filtered.nodes.length} nodes · {filtered.edges.length} links · scroll to zoom, drag to pan, click a node for details

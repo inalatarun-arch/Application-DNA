@@ -1,5 +1,5 @@
 import { Route, Routes } from 'react-router-dom';
-import { FileText, FlaskConical, FolderKanban, MessageSquareText } from 'lucide-react';
+import { FileText, FlaskConical, MessageSquareText } from 'lucide-react';
 import AppShell from '@/components/layout/AppShell';
 import DashboardPage from '@/pages/DashboardPage';
 import SettingsPage from '@/pages/SettingsPage';
@@ -14,6 +14,8 @@ import TechnicalRegistryPage from '@/pages/applications/TechnicalRegistryPage';
 import TechnicalComponentPage from '@/pages/applications/TechnicalComponentPage';
 import KnowledgeGraphPage from '@/pages/graph/KnowledgeGraphPage';
 import ProcessFlowsPage from '@/pages/graph/ProcessFlowsPage';
+import ProjectsPage from '@/pages/projects/ProjectsPage';
+import ProjectWorkspace from '@/pages/projects/ProjectWorkspace';
 
 export default function App() {
   return (
@@ -35,17 +37,10 @@ export default function App() {
           <Route index element={<KnowledgeGraphPage />} />
           <Route path="flows" element={<ProcessFlowsPage />} />
         </Route>
-        <Route
-          path="projects"
-          element={
-            <ModulePage
-              title="Projects & Delivery"
-              description="Manage initiatives from transcript to approved requirements."
-              icon={FolderKanban}
-              planned={['Projects linked to impacted applications', 'Transcript upload with AI meeting notes and requirement extraction', 'AI impact assessment and approval workflow']}
-            />
-          }
-        />
+        <Route path="projects">
+          <Route index element={<ProjectsPage />} />
+          <Route path=":projectId" element={<ProjectWorkspace />} />
+        </Route>
         <Route
           path="studio"
           element={
