@@ -1,4 +1,4 @@
-import { generateJson, generateText } from './geminiService';
+import { generateJson } from './geminiService';
 import type { GeminiContent } from './geminiService';
 import type { Project, Requirement, Application, AppModule, Functionality, Screen } from '@/db/types';
 
