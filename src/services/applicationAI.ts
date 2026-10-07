@@ -1,7 +1,7 @@
 import { generateJson } from './geminiService';
 import type { Application, AppModule, Functionality, Screen, TechnicalComponent } from '@/db/types';
 import type { GeminiContent } from './geminiService';
-import { asRecord, asString, asStringArray, safeTrim } from '@/lib/safeValue';
+import { asRecord, asStringArray, safeTrim } from '@/lib/safeValue';
 
 export interface UiElementAI {
   name: string;
@@ -125,7 +125,7 @@ function normalizeApplicationExtraction(value: unknown): ApplicationExtraction {
     const metadata = asRecord(item.metadata);
     const columns = normalizeObjectArray(item.columns).map((column) => ({
       name: safeTrim(column.name), dataType: safeTrim(column.dataType), nullable: column.nullable !== false,
-      key: column.key === 'PK' || column.key === 'FK' ? column.key : '' as const,
+      key: (column.key === 'PK' || column.key === 'FK' ? column.key : '') as '' | 'PK' | 'FK',
       references: safeTrim(column.references), description: safeTrim(column.description),
     }));
     return {
