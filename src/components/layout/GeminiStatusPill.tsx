@@ -13,6 +13,8 @@ export default function GeminiStatusPill() {
         return { text: `Connected${status.latencyMs ? ` · ${status.latencyMs} ms` : ''}`, title: `Gemini connected (${status.model ?? 'model'})`, dot: 'filled' as const };
       case 'checking':
         return { text: 'Checking…', title: 'Testing the Gemini connection', dot: 'spinner' as const };
+      case 'retrying':
+        return { text: status.message ?? 'Retrying…', title: status.message ?? 'Gemini request is being retried', dot: 'spinner' as const };
       case 'quota':
         return { text: 'Quota reached', title: status.message ?? 'Gemini quota reached', dot: 'error' as const };
       case 'error':
