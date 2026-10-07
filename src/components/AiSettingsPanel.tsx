@@ -11,7 +11,8 @@ import {
   wipeLegacyKeys,
 } from '../lib/vault';
 import type { VaultMode, LegacyKeyHit } from '../lib/vault';
-import { getModel, setModel, testConnection, MODEL_PRESETS } from '../lib/gemini';
+import { testConnection } from '@/services/geminiService';
+import { DEFAULT_MODEL } from '@/config/ai';
 import { btnPrimary, btnSecondary, card, h2, h3, input, label, muted } from './ui';
 
 export function AiSettingsPanel() {
@@ -24,7 +25,7 @@ export function AiSettingsPanel() {
   const [unlockPass, setUnlockPass] = useState('');
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<{ kind: 'ok' | 'err'; text: string } | null>(null);
-  const [model, setModelState] = useState(getModel());
+  const [model, setModelState] = useState(DEFAULT_MODEL);
   const [models, setModels] = useState<string[]>([]);
   const [testing, setTesting] = useState(false);
   const [legacy, setLegacy] = useState<LegacyKeyHit[]>(() => findLegacyKeys());
@@ -66,8 +67,7 @@ export function AiSettingsPanel() {
   const onTest = async () => {
     setTesting(true);
     setMsg(null);
-    setModel(model);
-    const r = await testConnection();
+    const r = await testConnection({ model });
     if (r.models.length) setModels(r.models);
     setMsg({ kind: r.ok ? 'ok' : 'err', text: r.message + (r.latencyMs ? ` (${r.latencyMs} ms)` : '') });
     setTesting(false);
@@ -236,10 +236,10 @@ export function AiSettingsPanel() {
               list="eih-model-list"
               value={model}
               onChange={(e) => setModelState(e.target.value)}
-              onBlur={() => setModel(model)}
+              onBlur={() => undefined}
             />
             <datalist id="eih-model-list">
-              {[...new Set([...MODEL_PRESETS, ...models])].map((m) => (
+              {[...new Set([DEFAULT_MODEL, ...models])].map((m) => (
                 <option key={m} value={m} />
               ))}
             </datalist>
