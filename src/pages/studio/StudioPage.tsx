@@ -1,11 +1,10 @@
 import { useMemo, useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { Download, History, RefreshCw, CheckCircle2, XCircle, FileText, Table2 } from 'lucide-react';
+import { RefreshCw, CheckCircle2, XCircle, FileText, Table2 } from 'lucide-react';
 import { db, newId, nowIso } from '@/db/db';
-import { createDocument, saveDocumentVersion, submitDocument, decideDocument, generateRequirementStories, buildRtm, ensureDefaultTemplates, DEFAULT_APPROVAL_MATRIX } from '@/db/delivery';
-import type { DeliveryDocument, DeliveryApproval, Requirement } from '@/db/types';
+import { createDocument, saveDocumentVersion, submitDocument, decideDocument, generateRequirementStories, buildRtm, ensureDefaultTemplates } from '@/db/delivery';
+import type { DeliveryDocument, DeliveryApproval, Requirement, DeliveryStory, RequirementTrace } from '@/db/types';
 import { generateText } from '@/services/geminiService';
-import { flowToMermaid } from '@/lib/flowToMermaid';
 import PageHeader from '@/components/ui/PageHeader';
 
 function download(name:string,text:string,mime='text/markdown'){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([text],{type:mime}));a.download=name;a.click();URL.revokeObjectURL(a.href);}
@@ -24,10 +23,10 @@ export default function StudioPage(){
   const projects=useLiveQuery(()=>db.projects.orderBy('name').toArray(),[],[]);
   const docs=useLiveQuery(()=>projectId?db.deliveryDocuments.where('projectId').equals(projectId).toArray():Promise.resolve([] as DeliveryDocument[]),[projectId],[]);
   const approvals=useLiveQuery(()=>{const d=docs.find(x=>x.type===type);return d?db.deliveryApprovals.where('documentId').equals(d.id).sortBy('createdAt'):Promise.resolve([] as DeliveryApproval[])},[docs,type],[]);
-  const versions=useLiveQuery(()=>{const d=docs.find(x=>x.type===type);return d?db.deliveryDocumentVersions.where('documentId').orderBy('version').reverse().toArray():Promise.resolve([])},[docs,type],[]);
+  const versions=useLiveQuery(()=>{const d=docs.find(x=>x.type===type);return d?db.deliveryDocumentVersions.where('documentId').equals(d.id).sortBy('version').then(v=>v.reverse()):Promise.resolve([])},[docs,type],[]);
   const reqs=useLiveQuery(()=>projectId?db.requirements.where('projectId').equals(projectId).toArray():Promise.resolve([] as Requirement[]),[projectId],[]);
-  const stories=useLiveQuery(()=>projectId?db.deliveryStories.where('projectId').equals(projectId).toArray():Promise.resolve([]),[projectId],[]);
-  const rtm=useLiveQuery(()=>projectId?buildRtm(projectId):Promise.resolve([]),[projectId],[]);
+  const stories=useLiveQuery(()=>projectId?db.deliveryStories.where('projectId').equals(projectId).toArray():Promise.resolve([] as DeliveryStory[]),[projectId],[] as import('@/db/types').DeliveryStory[]);
+  const rtm=useLiveQuery(()=>projectId?buildRtm(projectId):Promise.resolve([] as RequirementTrace[]),[projectId],[] as import('@/db/types').RequirementTrace[]);
   const project=projects?.find(p=>p.id===projectId); const doc=docs?.find(d=>d.type===type);
   const content=doc?.content ?? draft;
   const headings=useMemo(()=>content.split('\n').filter(x=>/^#{1,2} /.test(x)).join('\n'),[content]);
@@ -37,12 +36,12 @@ export default function StudioPage(){
       await ensureDefaultTemplates(); let d=doc;
       if(!d) d=await createDocument(project.id,type,`${project.name} - ${type.toUpperCase()}`);
       const template=await db.organizationTemplates.where('type').equals(type).first();
-      const generated=await generateText({feature:type,prompt:buildPrompt(project,reqs,stories,type,template?.markdownHeadings??''),temperature:.2,maxOutputTokens:30000});
+      const generated=await generateText(buildPrompt(project,reqs,stories,type,template?.markdownHeadings??''),{feature:type,temperature:.2,maxOutputTokens:30000});
       await db.transaction('rw',[db.deliveryDocuments,db.deliveryDocumentVersions],async()=>{
         if(d!.content) await db.deliveryDocumentVersions.add({id:newId(),documentId:d!.id,version:d!.version,content:d!.content,note:'Before regeneration',createdAt:nowIso()});
-        await db.deliveryDocuments.update(d!.id,{content:generated,version:d!.version+1,updatedAt:nowIso(),status:'draft',generatedAt:nowIso()});
+        await db.deliveryDocuments.update(d!.id,{content:generated.text,version:d!.version+1,updatedAt:nowIso(),status:'draft',generatedAt:nowIso()});
       });
-      setDraft(generated);
+      setDraft(generated.text);
     }catch(e){setError(e instanceof Error?e.message:'Generation failed.')}finally{setBusy(false)}
   };
   const save=async()=>{if(!doc)return;await saveDocumentVersion(doc.id,draft||content,'Manual save');};
