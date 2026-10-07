@@ -363,16 +363,21 @@ export async function generateText(prompt: Prompt, opts: GenerateOptions = {}): 
 /** Generation constrained to JSON, parsed and returned as T. Pass `responseSchema` for best results. */
 export async function generateJson<T = unknown>(prompt: Prompt, opts: GenerateOptions = {}): Promise<{ data: T } & GenerateResult> {
   const apiKey = requireKey();
-  const { model, temperature } = await resolveModel(opts);
+  const { model, temperature, fallbackModels } = await resolveModel(opts);
   const started = performance.now();
 
   let raw: RawResponse;
+  let answeredBy = model;
   try {
-    raw = await requestJson<RawResponse>(
-      `${API_BASE}/models/${encodeURIComponent(model)}:generateContent`,
-      { method: 'POST', headers: headers(apiKey), body: buildBody(prompt, opts, temperature, true) },
-      { timeoutMs: opts.timeoutMs ?? DEFAULT_TIMEOUT_MS, retries: opts.retries ?? 2, signal: opts.signal },
+    const routed = await requestWithFallback([model, ...fallbackModels], (candidateModel) =>
+      requestJson<RawResponse>(
+        `${API_BASE}/models/${encodeURIComponent(candidateModel)}:generateContent`,
+        { method: 'POST', headers: headers(apiKey), body: buildBody(prompt, opts, temperature, true) },
+        { timeoutMs: opts.timeoutMs ?? DEFAULT_TIMEOUT_MS, retries: opts.retries ?? 2, signal: opts.signal, model: candidateModel },
+      ),
     );
+    raw = routed.value;
+    answeredBy = routed.model;
   } catch (err) {
     if (isGeminiError(err)) reportFailure(err, model);
     throw err;
@@ -380,11 +385,11 @@ export async function generateJson<T = unknown>(prompt: Prompt, opts: GenerateOp
 
   const latencyMs = Math.round(performance.now() - started);
   const { text, finishReason } = extract(raw);
-  reportSuccess(model, latencyMs);
+  reportSuccess(answeredBy, latencyMs);
 
   const cleaned = safeTrim(text).replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '');
   try {
-    return { data: JSON.parse(cleaned) as T, text, model, latencyMs, finishReason, usage: usageOf(raw) };
+    return { data: JSON.parse(cleaned) as T, text, model: answeredBy, latencyMs, finishReason, usage: usageOf(raw) };
   } catch (err) {
     throw new GeminiError('PARSE', 'Gemini returned malformed JSON. Try again or simplify the request.', { cause: err });
   }
