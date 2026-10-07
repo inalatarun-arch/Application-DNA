@@ -19,9 +19,11 @@ export default function AiConfiguration() {
   const [modelsLoading, setModelsLoading] = useState(false);
   const [modelsError, setModelsError] = useState<string | null>(null);
   const [modelsUpdatedAt, setModelsUpdatedAt] = useState<number | null>(null);
+  const [fallbackDraft, setFallbackDraft] = useState('');
 
   // Keep the field in sync if the key changes elsewhere (restore, other tab).
   useEffect(() => setDraft(savedKey), [savedKey]);
+  useEffect(() => setFallbackDraft(ai.fallbackModels.join(', ')), [ai.fallbackModels]);
 
   const trimmed = draft.trim();
   const dirty = trimmed !== savedKey;
@@ -189,6 +191,26 @@ export default function AiConfiguration() {
             'Save an API key to load the models that key can actually use.'}
         </p>
         {modelsError && <p className="field-hint text-error">{modelsError}</p>}
+      </div>
+
+      <div className="mt-6 max-w-xl">
+        <label htmlFor="fallback-models" className="field-label">Fallback models</label>
+        <textarea
+          id="fallback-models"
+          className="input min-h-20 font-mono"
+          value={fallbackDraft}
+          onChange={(e) => setFallbackDraft(e.target.value)}
+          placeholder="gemini-2.5-flash, gemini-2.0-flash"
+          spellCheck={false}
+        />
+        <p className="field-hint">Optional comma-separated model IDs. When the primary model returns 404 or 503, Application DNA tries these in order. The UI reports which model answered.</p>
+        <button
+          type="button"
+          className="btn btn-secondary mt-2"
+          onClick={() => void saveAi({ fallbackModels: fallbackDraft.split(',').map((model) => model.trim()).filter(Boolean) })}
+        >
+          Save fallback list
+        </button>
       </div>
 
       <div className="mt-6">
