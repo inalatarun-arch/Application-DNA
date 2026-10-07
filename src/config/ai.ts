@@ -29,11 +29,14 @@ export interface AiSettings {
   defaultModel: string;
   /** Per-feature model overrides. */
   featureModels: Partial<Record<AiFeature, string>>;
+  /** Models tried after the primary when Google returns 404 or 503. */
+  fallbackModels: string[];
   temperature: number;
 }
 
 export const DEFAULT_AI_SETTINGS: AiSettings = {
   defaultModel: DEFAULT_MODEL,
   featureModels: { impact: DEFAULT_MODEL, frd: DEFAULT_MODEL, tdd: DEFAULT_MODEL },
+  fallbackModels: [],
   temperature: 0.3,
 };
