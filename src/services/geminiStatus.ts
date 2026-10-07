@@ -1,6 +1,6 @@
 import { getApiKey, subscribeApiKey } from './apiKeyStore';
 
-export type GeminiPhase = 'missing' | 'untested' | 'checking' | 'connected' | 'quota' | 'error';
+export type GeminiPhase = 'missing' | 'untested' | 'checking' | 'retrying' | 'connected' | 'quota' | 'error';
 
 export interface GeminiStatus {
   phase: GeminiPhase;
@@ -8,6 +8,8 @@ export interface GeminiStatus {
   model?: string;
   checkedAt?: number;
   message?: string;
+  attempt?: number;
+  maxAttempts?: number;
 }
 
 const STORAGE_KEY = 'eih.gemini.status';
