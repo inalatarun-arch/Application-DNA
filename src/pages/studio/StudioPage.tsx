@@ -3,7 +3,7 @@ import { useLiveQuery } from 'dexie-react-hooks';
 import { RefreshCw, CheckCircle2, XCircle, FileText, Table2 } from 'lucide-react';
 import { db, newId, nowIso } from '@/db/db';
 import { createDocument, saveDocumentVersion, submitDocument, decideDocument, generateRequirementStories, buildRtm, ensureDefaultTemplates } from '@/db/delivery';
-import type { DeliveryDocument, DeliveryApproval, Requirement, DeliveryStory, RequirementTrace } from '@/db/types';
+import type { DeliveryDocument, DeliveryApproval, DeliveryDocumentVersion, Requirement, DeliveryStory, RequirementTrace } from '@/db/types';
 import { generateText } from '@/services/geminiService';
 import PageHeader from '@/components/ui/PageHeader';
 
@@ -23,7 +23,7 @@ export default function StudioPage(){
   const projects=useLiveQuery(()=>db.projects.orderBy('name').toArray(),[],[]);
   const docs=useLiveQuery(()=>projectId?db.deliveryDocuments.where('projectId').equals(projectId).toArray():Promise.resolve([] as DeliveryDocument[]),[projectId],[]);
   const approvals=useLiveQuery(()=>{const d=docs.find(x=>x.type===type);return d?db.deliveryApprovals.where('documentId').equals(d.id).sortBy('createdAt'):Promise.resolve([] as DeliveryApproval[])},[docs,type],[]);
-  const versions=useLiveQuery(()=>{const d=docs.find(x=>x.type===type);return d?db.deliveryDocumentVersions.where('documentId').equals(d.id).sortBy('version').then(v=>v.reverse()):Promise.resolve([])},[docs,type],[]);
+  const versions=useLiveQuery<DeliveryDocumentVersion[]>(()=>{const d=docs.find(x=>x.type===type);return d?db.deliveryDocumentVersions.where('documentId').equals(d.id).sortBy('version').then(v=>v.reverse()):Promise.resolve([] as DeliveryDocumentVersion[])},[docs,type],[] as DeliveryDocumentVersion[]);
   const reqs=useLiveQuery(()=>projectId?db.requirements.where('projectId').equals(projectId).toArray():Promise.resolve([] as Requirement[]),[projectId],[]);
   const stories=useLiveQuery(()=>projectId?db.deliveryStories.where('projectId').equals(projectId).toArray():Promise.resolve([] as DeliveryStory[]),[projectId],[] as import('@/db/types').DeliveryStory[]);
   const rtm=useLiveQuery(()=>projectId?buildRtm(projectId):Promise.resolve([] as RequirementTrace[]),[projectId],[] as import('@/db/types').RequirementTrace[]);
