@@ -15,3 +15,7 @@ npm run build      # type-check + production build into dist/
 - The Gemini key is stored in `localStorage` (`eih.gemini.apiKey`), never in IndexedDB, and is excluded from database exports unless you opt in.
 - All Gemini traffic goes through `src/services/geminiService.ts`.
 - Schema changes: add a new `this.version(n)` block in `src/db/db.ts` and bump `DB_SCHEMA_VERSION`.
+
+## Documentation
+
+- [Application DNA Product & User Guide](docs/APPLICATION-DNA-PRODUCT-USER-GUIDE.md) — product overview, capabilities, user workflows, AI behavior, operating guidance, current limitations and recommended BA lifecycle.
