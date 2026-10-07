@@ -229,7 +229,7 @@ async function toGeminiError(res: Response): Promise<GeminiError> {
 function shouldRetry(err: GeminiError): boolean {
   if (err.code === 'SERVER_ERROR' || err.code === 'NETWORK') return true;
   // Only auto-retry quota errors when Google says the wait is short (per-minute limits).
-  if (err.code === 'QUOTA_EXCEEDED') return err.retryAfterMs !== undefined && err.retryAfterMs <= MAX_AUTO_RETRY_DELAY_MS;
+  if (err.code === 'QUOTA_EXCEEDED') return true;
   return false;
 }
 
@@ -301,7 +301,7 @@ function buildBody(prompt: Prompt, opts: GenerateOptions, temperature: number, j
   });
 }
 
-function extract(raw: RawResponse): { text: string; finishReason?: string } {
+export function extractGeminiResponse(raw: unknown): { text: string; finishReason?: string } {
   if (!raw || typeof raw !== 'object') throw new GeminiEmptyResponseError();
   if (raw.promptFeedback?.blockReason) {
     throw new GeminiBlockedError(`Gemini blocked the prompt (${raw.promptFeedback.blockReason}). Rephrase the input and try again.`);
@@ -319,6 +319,9 @@ function extract(raw: RawResponse): { text: string; finishReason?: string } {
     }
     if (finishReason === 'MAX_TOKENS') {
       throw new GeminiTruncatedError('The output limit was reached before any text was produced. Raise maxOutputTokens.');
+    }
+    if (finishReason && finishReason !== 'STOP') {
+      throw new GeminiTruncatedError(`Gemini stopped with finish reason ${finishReason} before producing usable text.`);
     }
     throw new GeminiEmptyResponseError();
   }
@@ -354,7 +357,7 @@ export async function generateText(prompt: Prompt, opts: GenerateOptions = {}): 
   }
 
   const latencyMs = Math.round(performance.now() - started);
-  const { text, finishReason } = extract(raw);
+  const { text, finishReason } = extractGeminiResponse(raw);
   const answeredBy = routed?.model ?? model;
   reportSuccess(answeredBy, latencyMs);
   return { text, model: answeredBy, latencyMs, finishReason, usage: usageOf(raw) };
