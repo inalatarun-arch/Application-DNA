@@ -1,10 +1,8 @@
 import React from 'react';
 import { Route, Routes } from 'react-router-dom';
-import { FileText } from 'lucide-react';
 import AppShell from '@/components/layout/AppShell';
 import DashboardPage from '@/pages/DashboardPage';
 import SettingsPage from '@/pages/SettingsPage';
-import ModulePage from '@/pages/ModulePage';
 import ApplicationsPage from '@/pages/applications/ApplicationsPage';
 import CatalogSearchPage from '@/pages/applications/CatalogSearchPage';
 import ApplicationWorkspace from '@/pages/applications/ApplicationWorkspace';
