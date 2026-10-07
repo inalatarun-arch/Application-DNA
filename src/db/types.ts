@@ -247,6 +247,17 @@ export interface SettingRecord {
   updatedAt: string;
 }
 
+export type ChangeType = 'New' | 'Modify' | 'Remove' | 'Review';
+export type Severity = 'Low' | 'Medium' | 'High';
+export interface ImpactReport {
+  summary: string; overallRisk: 'Low'|'Medium'|'High'|'Critical'; confidence: 'Low'|'Medium'|'High'; knowledgeCoverage: string;
+  functionalImpact: { screens:{name:string;application:string;impact:string;changeType:ChangeType;sourceRefs:string[]}[]; processes:{name:string;impact:string;sourceRefs:string[]}[] };
+  technicalImpact:{components:{type:string;name:string;impact:string;changeType:ChangeType;sourceRefs:string[]}[]};
+  integrationRisks:{direction:'Upstream'|'Downstream';system:string;risk:string;severity:Severity;mitigation:string;sourceRefs:string[]}[];
+  gapAnalysis:{missingApprovalSteps:string[];regressionRisks:string[];missingRequirements:string[];missingTestCoverage:string[];unaddressedDependencies:string[]};
+  overlappingProjects:string[]; recommendedActions:string[];
+}
+
 // ---------- Delivery documents, traceability and approvals ----------
 
 export type DeliveryDocumentType = 'frd' | 'tdd';
