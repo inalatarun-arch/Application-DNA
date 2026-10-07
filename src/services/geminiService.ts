@@ -113,7 +113,7 @@ export interface GenerateResult {
   usage?: { promptTokens?: number; outputTokens?: number; totalTokens?: number };
 }
 
-interface RawResponse {
+export interface RawResponse {
   candidates?: Array<{
     content?: { parts?: Array<{ text?: string; thought?: boolean }> };
     finishReason?: string;
@@ -301,7 +301,7 @@ function buildBody(prompt: Prompt, opts: GenerateOptions, temperature: number, j
   });
 }
 
-export function extractGeminiResponse(raw: unknown): { text: string; finishReason?: string } {
+export function extractGeminiResponse(raw: RawResponse): { text: string; finishReason?: string } {
   if (!raw || typeof raw !== 'object') throw new GeminiEmptyResponseError();
   if (raw.promptFeedback?.blockReason) {
     throw new GeminiBlockedError(`Gemini blocked the prompt (${raw.promptFeedback.blockReason}). Rephrase the input and try again.`);
