@@ -342,6 +342,7 @@ export async function generateText(prompt: Prompt, opts: GenerateOptions = {}): 
   const started = performance.now();
 
   let raw: RawResponse;
+  let answeredBy = model;
   try {
     const routed = await requestWithFallback([model, ...fallbackModels], (candidateModel) =>
       requestJson<RawResponse>(
@@ -351,6 +352,7 @@ export async function generateText(prompt: Prompt, opts: GenerateOptions = {}): 
       ),
     );
     raw = routed.value;
+    answeredBy = routed.model;
   } catch (err) {
     if (isGeminiError(err)) reportFailure(err, model);
     throw err;
@@ -358,7 +360,6 @@ export async function generateText(prompt: Prompt, opts: GenerateOptions = {}): 
 
   const latencyMs = Math.round(performance.now() - started);
   const { text, finishReason } = extractGeminiResponse(raw);
-  const answeredBy = routed?.model ?? model;
   reportSuccess(answeredBy, latencyMs);
   return { text, model: answeredBy, latencyMs, finishReason, usage: usageOf(raw) };
 }
