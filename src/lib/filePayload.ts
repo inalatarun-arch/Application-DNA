@@ -5,7 +5,7 @@ const MAX_FILE_BYTES = 12 * 1024 * 1024;
 const TEXT_EXTENSIONS = new Set(['txt','md','csv','json','xml','yaml','yml','log','sql','graphql','js','ts','tsx','jsx','css','html','vtt','srt']);
 const SUPPORTED_BINARY_EXTENSIONS = new Set(['pdf','docx','png','jpg','jpeg','webp']);
 
-function validateFile(file: File): void {
+export function validateFile(file: File): void {
   if (!(file instanceof File)) throw new Error('Please select a valid file.');
   if (file.size <= 0) throw new Error(`${file.name || 'The selected file'} is empty. Add a file with content and try again.`);
   if (file.size > MAX_FILE_BYTES) throw new Error(`${file.name} is larger than 12 MB. Split the document or upload a smaller file.`);
