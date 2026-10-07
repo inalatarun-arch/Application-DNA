@@ -68,7 +68,7 @@ export function AiSettingsPanel() {
     setTesting(true);
     setMsg(null);
     const r = await testConnection({ model });
-    if (r.models.length) setModels(r.models);
+    setModels([]);
     setMsg({ kind: r.ok ? 'ok' : 'err', text: r.message + (r.latencyMs ? ` (${r.latencyMs} ms)` : '') });
     setTesting(false);
   };
