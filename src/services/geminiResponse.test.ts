@@ -4,6 +4,7 @@ import {
   GeminiBlockedError,
   GeminiEmptyResponseError,
   GeminiTruncatedError,
+  toGeminiError,
 } from "@/services/geminiService";
 
 describe("Gemini response guards", () => {
@@ -37,5 +38,23 @@ describe("Gemini response guards", () => {
     expect(extractGeminiResponse({
       candidates: [{ content: { parts: [{ text: "hello" }] }, finishReason: "STOP" }],
     }).text).toBe("hello");
+  });
+});
+
+describe("HTTP mapping", () => {
+  test("503", async () => {
+    const e = await toGeminiError(new Response("busy", { status: 503 }));
+    expect(e.code).toBe("SERVER_ERROR");
+    expect(e.status).toBe(503);
+  });
+  test("429", async () => {
+    const e = await toGeminiError(new Response("busy", { status: 429 }));
+    expect(e.code).toBe("QUOTA_EXCEEDED");
+    expect(e.status).toBe(429);
+  });
+  test("404", async () => {
+    const e = await toGeminiError(new Response("missing", { status: 404 }));
+    expect(e.code).toBe("MODEL_NOT_FOUND");
+    expect(e.status).toBe(404);
   });
 });
