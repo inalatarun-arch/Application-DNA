@@ -388,7 +388,7 @@ export async function generateJson<T = unknown>(prompt: Prompt, opts: GenerateOp
   }
 
   const latencyMs = Math.round(performance.now() - started);
-  const { text, finishReason } = extract(raw);
+  const { text, finishReason } = extractGeminiResponse(raw);
   reportSuccess(answeredBy, latencyMs);
 
   const cleaned = safeTrim(text).replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '');
@@ -442,7 +442,7 @@ export async function streamText(
       return; // ignore partial/keep-alive frames
     }
     if (raw.promptFeedback?.blockReason) {
-      throw new GeminiError('BLOCKED', `Gemini blocked the prompt (${raw.promptFeedback.blockReason}).`);
+      throw new GeminiBlockedError(`Gemini blocked the prompt (${raw.promptFeedback.blockReason}).`);
     }
     const cand = raw.candidates?.[0];
     finishReason = cand?.finishReason ?? finishReason;
@@ -470,7 +470,11 @@ export async function streamText(
     throw new GeminiError('NETWORK', 'The connection to Gemini was interrupted while streaming.', { cause: err });
   }
 
-  if (!full) throw new GeminiError('EMPTY_RESPONSE', 'Gemini returned an empty response. Try again.');
+  if (!full) {
+    if (finishReason === 'SAFETY' || finishReason === 'PROHIBITED_CONTENT' || finishReason === 'RECITATION') throw new GeminiBlockedError(`Gemini withheld the response (${finishReason}).`);
+    if (finishReason && finishReason !== 'STOP') throw new GeminiTruncatedError(`Gemini stopped with finish reason ${finishReason} before producing usable text.`);
+    throw new GeminiEmptyResponseError();
+  }
   const latencyMs = Math.round(performance.now() - started);
   reportSuccess(model, latencyMs);
   return { text: full, model, latencyMs, finishReason, usage };
