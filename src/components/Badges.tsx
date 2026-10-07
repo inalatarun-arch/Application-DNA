@@ -1,5 +1,9 @@
 import type { ReactNode } from 'react';
-import type { MoSCoW, StoryStatus, Complexity, Severity, RequirementStatus } from '../db/deliveryDb';
+type MoSCoW = 'Must' | 'Should' | 'Could' | "Won't";
+type StoryStatus = 'Backlog' | 'Ready' | 'In Progress' | 'Done' | 'Blocked';
+type Complexity = 'XS' | 'S' | 'M' | 'L' | 'XL';
+type Severity = 'Low' | 'Medium' | 'High';
+type RequirementStatus = 'Draft' | 'Approved' | 'Rejected';
 
 const base = 'inline-flex items-center rounded px-2 py-[2px] text-[11px] font-semibold leading-4 whitespace-nowrap';
 
