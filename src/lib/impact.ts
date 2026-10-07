@@ -1,4 +1,4 @@
-import type { ImpactReport, ChangeType, Severity, Requirement } from '../db/deliveryDb';
+import type { ImpactReport, ChangeType, Severity, Requirement } from '../db/types';
 
 const arr = <T,>(v: unknown, map: (x: unknown) => T): T[] => (Array.isArray(v) ? v.map(map) : []);
 const str = (v: unknown, d = ''): string => (typeof v === 'string' ? v : v == null ? d : String(v));
@@ -62,7 +62,7 @@ export function normalizeImpact(raw: unknown): ImpactReport {
   };
 }
 
-export function impactToMarkdown(req: Pick<Requirement, 'id' | 'title' | 'text'>, r: ImpactReport): string {
+export function impactToMarkdown(req: Pick<Requirement, 'id' | 'title' | 'description'>, r: ImpactReport): string {
   const list = (items: string[]) => (items.length ? items.map((i) => `- ${i}`).join('\n') : '- None identified');
   const refs = (x: string[]) => (x.length ? ` [${x.join(', ')}]` : '');
   return `# Impact Assessment - REQ-${req.id}: ${req.title}
