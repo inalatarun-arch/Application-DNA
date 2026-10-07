@@ -7,6 +7,7 @@ import { getApiKey } from './apiKeyStore';
 import { setStatus } from './geminiStatus';
 import { getAiSettings } from '@/db/settings';
 import type { AiFeature } from '@/config/ai';
+import { safeTrim } from '@/lib/safeValue';
 
 const API_BASE = 'https://generativelanguage.googleapis.com/v1beta';
 const DEFAULT_TIMEOUT_MS = 90_000;
@@ -29,6 +30,23 @@ export type GeminiErrorCode =
   | 'NETWORK'
   | 'PARSE'
   | 'UNKNOWN';
+
+export class GeminiHttpError extends Error {
+  readonly status: number;
+  constructor(status: number, message: string) { super(message); this.name = 'GeminiHttpError'; this.status = status; }
+}
+export class GeminiBlockedError extends Error {
+  constructor(message: string) { super(message); this.name = 'GeminiBlockedError'; }
+}
+export class GeminiEmptyResponseError extends Error {
+  constructor(message = 'Gemini returned an empty response. Try again.') { super(message); this.name = 'GeminiEmptyResponseError'; }
+}
+export class GeminiTruncatedError extends Error {
+  constructor(message = 'Gemini stopped before completing the response. Raise maxOutputTokens and try again.') { super(message); this.name = 'GeminiTruncatedError'; }
+}
+export class KeyLockedError extends Error {
+  constructor(message = 'The Gemini API key is locked. Unlock it in AI Configuration and try again.') { super(message); this.name = 'KeyLockedError'; }
+}
 
 export class GeminiError extends Error {
   readonly code: GeminiErrorCode;
@@ -107,7 +125,7 @@ interface RawResponse {
 // ---------------------------------------------------------------- low-level helpers
 
 function requireKey(override?: string): string {
-  const key = (override ?? getApiKey()).trim();
+  const key = safeTrim(override ?? getApiKey());
   if (!key) {
     throw new GeminiError('MISSING_KEY', 'No Gemini API key is configured. Add one in Settings → AI Configuration.');
   }
@@ -218,7 +236,7 @@ function shouldRetry(err: GeminiError): boolean {
 async function requestJson<T>(
   url: string,
   init: RequestInit,
-  opts: { timeoutMs: number; retries: number; signal?: AbortSignal },
+  opts: { timeoutMs: number; retries: number; signal?: AbortSignal; model?: string },
 ): Promise<T> {
   for (let attempt = 0; ; attempt++) {
     try {
@@ -228,7 +246,8 @@ async function requestJson<T>(
     } catch (err) {
       const e = isGeminiError(err) ? err : new GeminiError('UNKNOWN', describeError(err), { cause: err });
       if (attempt >= opts.retries || !shouldRetry(e)) throw e;
-      const backoff = e.retryAfterMs ?? 800 * 2 ** attempt + Math.random() * 250;
+      const backoff = e.retryAfterMs ?? Math.min(MAX_AUTO_RETRY_DELAY_MS, 800 * 2 ** attempt);
+      if (opts.model) setStatus({ phase: 'retrying', model: opts.model, checkedAt: Date.now(), attempt: attempt + 2, maxAttempts: opts.retries + 1, message: 'Retrying (' + (attempt + 2) + '/' + (opts.retries + 1) + ')…' });
       await sleep(backoff, opts.signal);
     }
   }
@@ -266,8 +285,9 @@ function buildBody(prompt: Prompt, opts: GenerateOptions, temperature: number, j
 }
 
 function extract(raw: RawResponse): { text: string; finishReason?: string } {
+  if (!raw || typeof raw !== 'object') throw new GeminiEmptyResponseError();
   if (raw.promptFeedback?.blockReason) {
-    throw new GeminiError('BLOCKED', `Gemini blocked the prompt (${raw.promptFeedback.blockReason}). Rephrase the input and try again.`);
+    throw new GeminiBlockedError(`Gemini blocked the prompt (${raw.promptFeedback.blockReason}). Rephrase the input and try again.`);
   }
   const candidate = raw.candidates?.[0];
   const finishReason = candidate?.finishReason;
@@ -278,12 +298,12 @@ function extract(raw: RawResponse): { text: string; finishReason?: string } {
 
   if (!text) {
     if (finishReason === 'SAFETY' || finishReason === 'PROHIBITED_CONTENT' || finishReason === 'RECITATION') {
-      throw new GeminiError('BLOCKED', `Gemini withheld the response (${finishReason}). Rephrase the input and try again.`);
+      throw new GeminiBlockedError(`Gemini withheld the response (${finishReason}). Rephrase the input and try again.`);
     }
     if (finishReason === 'MAX_TOKENS') {
-      throw new GeminiError('EMPTY_RESPONSE', 'The output limit was reached before any text was produced. Raise maxOutputTokens.');
+      throw new GeminiTruncatedError('The output limit was reached before any text was produced. Raise maxOutputTokens.');
     }
-    throw new GeminiError('EMPTY_RESPONSE', 'Gemini returned an empty response. Try again.');
+    throw new GeminiEmptyResponseError();
   }
   return { text, finishReason };
 }
@@ -306,7 +326,7 @@ export async function generateText(prompt: Prompt, opts: GenerateOptions = {}): 
     raw = await requestJson<RawResponse>(
       `${API_BASE}/models/${encodeURIComponent(model)}:generateContent`,
       { method: 'POST', headers: headers(apiKey), body: buildBody(prompt, opts, temperature, false) },
-      { timeoutMs: opts.timeoutMs ?? DEFAULT_TIMEOUT_MS, retries: opts.retries ?? 2, signal: opts.signal },
+      { timeoutMs: opts.timeoutMs ?? DEFAULT_TIMEOUT_MS, retries: opts.retries ?? 2, signal: opts.signal, model },
     );
   } catch (err) {
     if (isGeminiError(err)) reportFailure(err, model);
@@ -341,7 +361,7 @@ export async function generateJson<T = unknown>(prompt: Prompt, opts: GenerateOp
   const { text, finishReason } = extract(raw);
   reportSuccess(model, latencyMs);
 
-  const cleaned = text.trim().replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '');
+  const cleaned = safeTrim(text).replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '');
   try {
     return { data: JSON.parse(cleaned) as T, text, model, latencyMs, finishReason, usage: usageOf(raw) };
   } catch (err) {
@@ -472,7 +492,7 @@ export interface ConnectionTestResult {
  * without spending generation quota. Updates the header status pill when testing the saved key.
  */
 export async function testConnection(opts: { apiKey?: string; model: string; signal?: AbortSignal }): Promise<ConnectionTestResult> {
-  const candidate = (opts.apiKey ?? getApiKey()).trim();
+  const candidate = safeTrim(opts.apiKey ?? getApiKey());
   const isSavedKey = candidate !== '' && candidate === getApiKey();
 
   if (!candidate) {
