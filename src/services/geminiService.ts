@@ -180,7 +180,7 @@ async function fetchWithTimeout(url: string, init: RequestInit, timeoutMs: numbe
   }
 }
 
-export async function toGeminiError(res: Response): Promise<GeminiError> {
+export export async function toGeminiError(res: Response): Promise<GeminiError> {
   let message = res.statusText || `HTTP ${res.status}`;
   let apiStatus = '';
   let reason = '';
