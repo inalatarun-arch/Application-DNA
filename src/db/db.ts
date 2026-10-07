@@ -9,6 +9,7 @@ import type {
   Project,
   Requirement,
   RequirementCandidate,
+  DeliveryDocument, DeliveryDocumentVersion, DeliveryApproval, OrganizationTemplate, DeliveryStory, RequirementTrace,
   Screen,
   ScreenMedia,
   SettingRecord,
@@ -17,7 +18,7 @@ import type {
 } from './types';
 
 /** Bump together with a new `this.version(n)` block when the schema changes. */
-export const DB_SCHEMA_VERSION = 4;
+export const DB_SCHEMA_VERSION = 5;
 
 export class EihDatabase extends Dexie {
   applications!: Table<Application, string>;
@@ -34,6 +35,12 @@ export class EihDatabase extends Dexie {
   settings!: Table<SettingRecord, string>;
   meetings!: Table<Meeting, string>;
   candidates!: Table<RequirementCandidate, string>;
+  deliveryDocuments!: Table<DeliveryDocument, string>;
+  deliveryDocumentVersions!: Table<DeliveryDocumentVersion, string>;
+  deliveryApprovals!: Table<DeliveryApproval, string>;
+  organizationTemplates!: Table<OrganizationTemplate, string>;
+  deliveryStories!: Table<DeliveryStory, string>;
+  requirementTraces!: Table<RequirementTrace, string>;
 
   constructor() {
     super('eih');
@@ -63,6 +70,14 @@ export class EihDatabase extends Dexie {
     this.version(4).stores({
       meetings: 'id, projectId, meetingDate, status',
       candidates: 'id, projectId, meetingId, decision',
+    });
+    this.version(5).stores({
+      deliveryDocuments: 'id, projectId, type, status, updatedAt',
+      deliveryDocumentVersions: 'id, documentId, version, createdAt',
+      deliveryApprovals: 'id, documentId, version, role, decision, decidedAt',
+      organizationTemplates: 'id, type, active, updatedAt',
+      deliveryStories: 'id, projectId, status, priority, *requirementIds',
+      requirementTraces: 'id, projectId, requirementId, storyId, designComponentId, documentId, *testCaseIds',
     });
   }
 }
