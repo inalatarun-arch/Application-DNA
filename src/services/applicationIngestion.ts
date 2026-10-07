@@ -1,8 +1,9 @@
 import { db, newId, nowIso } from '@/db/db';
 import type { Application, Functionality, Screen, TechnicalComponent } from '@/db/types';
 import type { ApplicationExtraction } from './applicationAI';
+import { safeTrim } from '@/lib/safeValue';
 
-const key = (v: string) => v.trim().toLowerCase();
+const key = (v: unknown) => safeTrim(v).toLowerCase();
 
 export async function applyApplicationExtraction(
   app: Application,
@@ -31,10 +32,10 @@ export async function applyApplicationExtraction(
     const modules = await db.modules.where('applicationId').equals(app.id).toArray();
     const moduleByName = new Map(modules.map((m) => [key(m.name), m]));
     for (const item of extraction.modules ?? []) {
-      if (!item.name?.trim()) continue;
-      const existing = moduleByName.get(key(item.matchName || item.name));
+      if (!safeTrim(item.name)) continue;
+      const existing = moduleByName.get(key(safeTrim(item.matchName) || safeTrim(item.name)));
       if (existing && item.operation === 'update') {
-        await db.modules.update(existing.id, { name: item.name.trim(), description: item.description?.trim() ?? existing.description, owner: item.owner?.trim() ?? existing.owner, updatedAt: now });
+        await db.modules.update(existing.id, { name: safeTrim(item.name), description: safeTrim(item.description) ?? existing.description, owner: safeTrim(item.owner) ?? existing.owner, updatedAt: now });
         moduleByName.set(key(item.name), { ...existing, name: item.name.trim() });
         updatedModules++;
       } else {
