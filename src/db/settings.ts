@@ -25,10 +25,18 @@ export async function setSetting<T>(key: string, value: T): Promise<void> {
 }
 
 function mergeAi(value: Partial<AiSettings> | undefined): AiSettings {
+  const rawFallbacks = Array.isArray(value?.fallbackModels) ? value.fallbackModels : DEFAULT_AI_SETTINGS.fallbackModels;
+  const fallbackModels = rawFallbacks
+    .filter((model): model is string => typeof model === 'string')
+    .map((model) => model.trim())
+    .filter(Boolean)
+    .filter((model, index, all) => all.indexOf(model) === index);
+
   return {
     ...DEFAULT_AI_SETTINGS,
     ...value,
     featureModels: { ...DEFAULT_AI_SETTINGS.featureModels, ...value?.featureModels },
+    fallbackModels,
   };
 }
 

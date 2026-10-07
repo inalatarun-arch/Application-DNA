@@ -247,6 +247,82 @@ export interface SettingRecord {
   updatedAt: string;
 }
 
+export type ChangeType = 'New' | 'Modify' | 'Remove' | 'Review';
+export type Severity = 'Low' | 'Medium' | 'High';
+export interface ImpactReport {
+  summary: string; overallRisk: 'Low'|'Medium'|'High'|'Critical'; confidence: 'Low'|'Medium'|'High'; knowledgeCoverage: string;
+  functionalImpact: { screens:{name:string;application:string;impact:string;changeType:ChangeType;sourceRefs:string[]}[]; processes:{name:string;impact:string;sourceRefs:string[]}[] };
+  technicalImpact:{components:{type:string;name:string;impact:string;changeType:ChangeType;sourceRefs:string[]}[]};
+  integrationRisks:{direction:'Upstream'|'Downstream';system:string;risk:string;severity:Severity;mitigation:string;sourceRefs:string[]}[];
+  gapAnalysis:{missingApprovalSteps:string[];regressionRisks:string[];missingRequirements:string[];missingTestCoverage:string[];unaddressedDependencies:string[]};
+  overlappingProjects:string[]; recommendedActions:string[];
+}
+
+// ---------- Delivery documents, traceability and approvals ----------
+
+export type DeliveryDocumentType = 'frd' | 'tdd';
+export type DeliveryApprovalRole = 'business-analyst' | 'business-owner' | 'application-owner' | 'technical-architect' | 'project-sponsor';
+export type DeliveryApprovalDecision = 'pending' | 'approved' | 'rejected';
+
+export interface DeliveryDocumentVersion {
+  id: ID;
+  documentId: ID;
+  version: number;
+  content: string;
+  note: string;
+  createdAt: string;
+}
+
+export interface DeliveryDocument extends BaseEntity {
+  projectId: ID;
+  type: DeliveryDocumentType;
+  title: string;
+  version: number;
+  content: string;
+  status: ApprovalStatus;
+  generatedAt?: string;
+  templateId: ID;
+}
+
+export interface DeliveryApproval extends BaseEntity {
+  documentId: ID;
+  version: number;
+  role: DeliveryApprovalRole;
+  approverName: string;
+  decision: DeliveryApprovalDecision;
+  comment: string;
+  decidedAt?: string;
+}
+
+export interface OrganizationTemplate extends BaseEntity {
+  name: string;
+  type: DeliveryDocumentType;
+  markdownHeadings: string;
+  active: boolean;
+}
+
+export interface DeliveryStory extends BaseEntity {
+  projectId: ID;
+  requirementIds: ID[];
+  title: string;
+  asA: string;
+  iWant: string;
+  soThat: string;
+  acceptanceCriteria: string[];
+  businessRules: string[];
+  priority: 'low' | 'medium' | 'high';
+  status: 'backlog' | 'ready' | 'in-progress' | 'done' | 'blocked';
+}
+
+export interface RequirementTrace extends BaseEntity {
+  projectId: ID;
+  requirementId: ID;
+  storyId?: ID;
+  designComponentId?: ID;
+  documentId?: ID;
+  testCaseIds: ID[];
+}
+ 
 // ---------- Project discovery: meetings and requirement suggestions ----------
 
 export interface MeetingDecision {

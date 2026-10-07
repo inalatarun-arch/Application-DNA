@@ -1,9 +1,8 @@
+import React from 'react';
 import { Route, Routes } from 'react-router-dom';
-import { FileText } from 'lucide-react';
 import AppShell from '@/components/layout/AppShell';
 import DashboardPage from '@/pages/DashboardPage';
 import SettingsPage from '@/pages/SettingsPage';
-import ModulePage from '@/pages/ModulePage';
 import ApplicationsPage from '@/pages/applications/ApplicationsPage';
 import CatalogSearchPage from '@/pages/applications/CatalogSearchPage';
 import ApplicationWorkspace from '@/pages/applications/ApplicationWorkspace';
@@ -18,8 +17,11 @@ import ProjectsPage from '@/pages/projects/ProjectsPage';
 import ProjectWorkspace from '@/pages/projects/ProjectWorkspace';
 import TestingPage from '@/pages/TestingPage';
 import CopilotPage from '@/pages/CopilotPage';
+import StudioPage from '@/pages/studio/StudioPage';
+import { migrateLegacyDelivery } from '@/db/deliveryMigration';
 
 export default function App() {
+  React.useEffect(() => { void migrateLegacyDelivery(); }, []);
   return (
     <Routes>
       <Route element={<AppShell />}>
@@ -43,17 +45,7 @@ export default function App() {
           <Route index element={<ProjectsPage />} />
           <Route path=":projectId" element={<ProjectWorkspace />} />
         </Route>
-        <Route
-          path="studio"
-          element={
-            <ModulePage
-              title="FRD/TDD Studio"
-              description="Generate and edit Functional Requirements and Technical Design Documents."
-              icon={FileText}
-              planned={['User story generation with acceptance criteria', 'FRD and TDD generation from approved requirements', 'Versioning and approval history']}
-            />
-          }
-        />
+        <Route path="studio" element={<StudioPage />} />
         <Route path="testing" element={<TestingPage />} />
         <Route path="copilot" element={<CopilotPage />} />
         <Route path="settings" element={<SettingsPage />} />

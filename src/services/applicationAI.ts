@@ -1,6 +1,7 @@
 import { generateJson } from './geminiService';
 import type { Application, AppModule, Functionality, Screen, TechnicalComponent } from '@/db/types';
 import type { GeminiContent } from './geminiService';
+import { asRecord, asStringArray, safeTrim } from '@/lib/safeValue';
 
 export interface UiElementAI {
   name: string;
@@ -80,6 +81,73 @@ const SCHEMA = {
   required: ['application', 'modules', 'screens', 'functionalities', 'technicalComponents'],
 } as const;
 
+const COMPONENT_KINDS: TechnicalComponent['kind'][] = ['class','package','method','service','api','table','view','procedure','trigger','rest','soap','middleware','queue','server','cloud','job'];
+const UI_TYPES: UiElementAI['type'][] = ['field','input','button','link','table','other'];
+
+function normalizeObjectArray(value: unknown): Record<string, unknown>[] {
+  return Array.isArray(value) ? value.map(asRecord) : [];
+}
+
+function normalizeApplicationExtraction(value: unknown): ApplicationExtraction {
+  const root = asRecord(value);
+  const app = asRecord(root.application);
+  const modules = normalizeObjectArray(root.modules).map((item) => ({
+    operation: item.operation === 'update' ? 'update' as const : 'create' as const,
+    matchName: safeTrim(item.matchName), name: safeTrim(item.name), description: safeTrim(item.description), owner: safeTrim(item.owner),
+  }));
+  const screens = normalizeObjectArray(root.screens).map((item) => ({
+    operation: item.operation === 'update' ? 'update' as const : 'create' as const,
+    matchName: safeTrim(item.matchName), name: safeTrim(item.name), moduleName: safeTrim(item.moduleName), purpose: safeTrim(item.purpose),
+    description: safeTrim(item.description), businessProcess: safeTrim(item.businessProcess), businessOwner: safeTrim(item.businessOwner),
+    functionalOwner: safeTrim(item.functionalOwner), navigationPath: safeTrim(item.navigationPath),
+    fieldDescriptions: normalizeObjectArray(item.fieldDescriptions).map((field) => ({ field: safeTrim(field.field), description: safeTrim(field.description) })).filter((field) => field.field),
+    uiElements: normalizeObjectArray(item.uiElements).map((ui) => ({
+      name: safeTrim(ui.name), type: UI_TYPES.includes(ui.type as UiElementAI['type']) ? ui.type as UiElementAI['type'] : 'other',
+      description: safeTrim(ui.description), action: safeTrim(ui.action), required: ui.required === true,
+    })).filter((ui) => ui.name),
+    validationRules: asStringArray(item.validationRules), workflowSteps: asStringArray(item.workflowSteps),
+    approvalLogic: safeTrim(item.approvalLogic), exceptionHandling: asStringArray(item.exceptionHandling),
+    upstreamSystems: asStringArray(item.upstreamSystems), downstreamSystems: asStringArray(item.downstreamSystems),
+    relatedScreenNames: asStringArray(item.relatedScreenNames), sourceFiles: asStringArray(item.sourceFiles),
+  }));
+  const functionalities = normalizeObjectArray(root.functionalities).map((item) => {
+    const exceptions = asRecord(item.exceptions);
+    return {
+      operation: item.operation === 'update' ? 'update' as const : 'create' as const,
+      matchName: safeTrim(item.matchName), screenName: safeTrim(item.screenName), moduleName: safeTrim(item.moduleName), name: safeTrim(item.name),
+      description: safeTrim(item.description), businessPurpose: safeTrim(item.businessPurpose), processFlow: safeTrim(item.processFlow),
+      userRoles: asStringArray(item.userRoles), triggers: asStringArray(item.triggers), inputs: asStringArray(item.inputs), outputs: asStringArray(item.outputs),
+      exceptions: { validation: asStringArray(exceptions.validation), error: asStringArray(exceptions.error), business: asStringArray(exceptions.business), system: asStringArray(exceptions.system) },
+      relatedFunctionalityNames: asStringArray(item.relatedFunctionalityNames), upstreamSystems: asStringArray(item.upstreamSystems), downstreamSystems: asStringArray(item.downstreamSystems),
+    };
+  });
+  const technicalComponents = normalizeObjectArray(root.technicalComponents).map((item) => {
+    const metadata = asRecord(item.metadata);
+    const columns = normalizeObjectArray(item.columns).map((column) => ({
+      name: safeTrim(column.name), dataType: safeTrim(column.dataType), nullable: column.nullable !== false,
+      key: (column.key === 'PK' || column.key === 'FK' ? column.key : '') as '' | 'PK' | 'FK',
+      references: safeTrim(column.references), description: safeTrim(column.description),
+    }));
+    return {
+      operation: item.operation === 'update' ? 'update' as const : 'create' as const,
+      matchName: safeTrim(item.matchName), kind: COMPONENT_KINDS.includes(item.kind as TechnicalComponent['kind']) ? item.kind as TechnicalComponent['kind'] : 'service',
+      name: safeTrim(item.name), description: safeTrim(item.description), definition: safeTrim(item.definition),
+      functionalityNames: asStringArray(item.functionalityNames), screenNames: asStringArray(item.screenNames), dependsOnNames: asStringArray(item.dependsOnNames),
+      metadata: Object.fromEntries(Object.entries(metadata).filter(([, v]) => typeof v === 'string').map(([k, v]) => [k, v as string])),
+      columns,
+    };
+  });
+  const criticalTier = app.criticalTier === 'tier-1' || app.criticalTier === 'tier-2' || app.criticalTier === 'tier-3' || app.criticalTier === 'tier-4' ? app.criticalTier : undefined;
+  return {
+    application: {
+      name: safeTrim(app.name), vendor: safeTrim(app.vendor), domain: safeTrim(app.domain), description: safeTrim(app.description),
+      businessOwner: safeTrim(app.businessOwner), technicalOwner: safeTrim(app.technicalOwner), technicalStack: asStringArray(app.technicalStack),
+      tags: asStringArray(app.tags), ...(criticalTier ? { criticalTier } : {}),
+    },
+    modules, screens, functionalities, technicalComponents,
+  };
+}
+
 const SYSTEM = `You are the Application DNA extraction architect. Convert unstructured business/technical descriptions and attached files into structured application knowledge.
 
 Rules:
@@ -134,5 +202,5 @@ export async function extractApplicationKnowledge(
     maxOutputTokens: 32768,
     signal,
   });
-  return { data: result.data, model: result.model };
+  return { data: normalizeApplicationExtraction(result.data), model: result.model };
 }

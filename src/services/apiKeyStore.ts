@@ -32,6 +32,7 @@ export function subscribeApiKey(listener: () => void): () => void {
   const onStorage = (e: StorageEvent) => {
     if (e.key === STORAGE_KEY || e.key === null) listener();
   };
+  if (typeof window === 'undefined') return () => undefined;
   window.addEventListener(CHANGE_EVENT, listener);
   window.addEventListener('storage', onStorage);
   return () => {

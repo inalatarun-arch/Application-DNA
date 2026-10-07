@@ -7,6 +7,7 @@ import { getApiKey } from './apiKeyStore';
 import { setStatus } from './geminiStatus';
 import { getAiSettings } from '@/db/settings';
 import type { AiFeature } from '@/config/ai';
+import { safeTrim } from '@/lib/safeValue';
 
 const API_BASE = 'https://generativelanguage.googleapis.com/v1beta';
 const DEFAULT_TIMEOUT_MS = 90_000;
@@ -30,7 +31,24 @@ export type GeminiErrorCode =
   | 'PARSE'
   | 'UNKNOWN';
 
-export class GeminiError extends Error {
+export class GeminiHttpError extends Error {
+  readonly status: number;
+  constructor(status: number, message: string) { super(message); this.name = 'GeminiHttpError'; this.status = status; }
+}
+export class GeminiBlockedError extends Error {
+  constructor(message: string) { super(message); this.name = 'GeminiBlockedError'; }
+}
+export class GeminiEmptyResponseError extends Error {
+  constructor(message = 'Gemini returned an empty response. Try again.') { super(message); this.name = 'GeminiEmptyResponseError'; }
+}
+export class GeminiTruncatedError extends Error {
+  constructor(message = 'Gemini stopped before completing the response. Raise maxOutputTokens and try again.') { super(message); this.name = 'GeminiTruncatedError'; }
+}
+export class KeyLockedError extends Error {
+  constructor(message = 'The Gemini API key is locked. Unlock it in AI Configuration and try again.') { super(message); this.name = 'KeyLockedError'; }
+}
+
+export class GeminiError extends GeminiHttpError {
   readonly code: GeminiErrorCode;
   readonly httpStatus?: number;
   /** Server-suggested wait before retrying (quota / overload). */
@@ -41,7 +59,7 @@ export class GeminiError extends Error {
     message: string,
     extra: { httpStatus?: number; retryAfterMs?: number; cause?: unknown } = {},
   ) {
-    super(message, { cause: extra.cause });
+    super(extra.httpStatus ?? 0, message);
     this.name = 'GeminiError';
     this.code = code;
     this.httpStatus = extra.httpStatus;
@@ -95,7 +113,7 @@ export interface GenerateResult {
   usage?: { promptTokens?: number; outputTokens?: number; totalTokens?: number };
 }
 
-interface RawResponse {
+export interface RawResponse {
   candidates?: Array<{
     content?: { parts?: Array<{ text?: string; thought?: boolean }> };
     finishReason?: string;
@@ -107,7 +125,7 @@ interface RawResponse {
 // ---------------------------------------------------------------- low-level helpers
 
 function requireKey(override?: string): string {
-  const key = (override ?? getApiKey()).trim();
+  const key = safeTrim(override ?? getApiKey());
   if (!key) {
     throw new GeminiError('MISSING_KEY', 'No Gemini API key is configured. Add one in Settings → AI Configuration.');
   }
@@ -162,7 +180,7 @@ async function fetchWithTimeout(url: string, init: RequestInit, timeoutMs: numbe
   }
 }
 
-async function toGeminiError(res: Response): Promise<GeminiError> {
+export async function toGeminiError(res: Response): Promise<GeminiError> {
   let message = res.statusText || `HTTP ${res.status}`;
   let apiStatus = '';
   let reason = '';
@@ -211,14 +229,14 @@ async function toGeminiError(res: Response): Promise<GeminiError> {
 function shouldRetry(err: GeminiError): boolean {
   if (err.code === 'SERVER_ERROR' || err.code === 'NETWORK') return true;
   // Only auto-retry quota errors when Google says the wait is short (per-minute limits).
-  if (err.code === 'QUOTA_EXCEEDED') return err.retryAfterMs !== undefined && err.retryAfterMs <= MAX_AUTO_RETRY_DELAY_MS;
+  if (err.code === 'QUOTA_EXCEEDED') return true;
   return false;
 }
 
 async function requestJson<T>(
   url: string,
   init: RequestInit,
-  opts: { timeoutMs: number; retries: number; signal?: AbortSignal },
+  opts: { timeoutMs: number; retries: number; signal?: AbortSignal; model?: string },
 ): Promise<T> {
   for (let attempt = 0; ; attempt++) {
     try {
@@ -228,7 +246,8 @@ async function requestJson<T>(
     } catch (err) {
       const e = isGeminiError(err) ? err : new GeminiError('UNKNOWN', describeError(err), { cause: err });
       if (attempt >= opts.retries || !shouldRetry(e)) throw e;
-      const backoff = e.retryAfterMs ?? 800 * 2 ** attempt + Math.random() * 250;
+      const backoff = e.retryAfterMs ?? Math.min(MAX_AUTO_RETRY_DELAY_MS, 800 * 2 ** attempt);
+      if (opts.model) setStatus({ phase: 'retrying', model: opts.model, checkedAt: Date.now(), attempt: attempt + 2, maxAttempts: opts.retries + 1, message: 'Retrying (' + (attempt + 2) + '/' + (opts.retries + 1) + ')…' });
       await sleep(backoff, opts.signal);
     }
   }
@@ -245,10 +264,27 @@ function reportSuccess(model: string, latencyMs: number): void {
   setStatus({ phase: 'connected', model, latencyMs, checkedAt: Date.now() });
 }
 
-async function resolveModel(opts: GenerateOptions): Promise<{ model: string; temperature: number }> {
+async function resolveModel(opts: GenerateOptions): Promise<{ model: string; temperature: number; fallbackModels: string[] }> {
   const settings = await getAiSettings();
   const model = opts.model ?? (opts.feature ? settings.featureModels[opts.feature] : undefined) ?? settings.defaultModel;
-  return { model, temperature: opts.temperature ?? settings.temperature };
+  const fallbackModels = opts.model ? [] : settings.fallbackModels.filter((candidate) => candidate !== model);
+  return { model, temperature: opts.temperature ?? settings.temperature, fallbackModels };
+}
+
+async function requestWithFallback<T>(
+  models: string[],
+  request: (model: string) => Promise<T>,
+): Promise<{ value: T; model: string }> {
+  let lastError: unknown;
+  for (const model of models) {
+    try {
+      return { value: await request(model), model };
+    } catch (err) {
+      lastError = err;
+      if (!(err instanceof GeminiError) || !['MODEL_NOT_FOUND', 'SERVER_ERROR'].includes(err.code)) throw err;
+    }
+  }
+  throw lastError;
 }
 
 function buildBody(prompt: Prompt, opts: GenerateOptions, temperature: number, json: boolean): string {
@@ -265,9 +301,10 @@ function buildBody(prompt: Prompt, opts: GenerateOptions, temperature: number, j
   });
 }
 
-function extract(raw: RawResponse): { text: string; finishReason?: string } {
+export function extractGeminiResponse(raw: RawResponse): { text: string; finishReason?: string } {
+  if (!raw || typeof raw !== 'object') throw new GeminiEmptyResponseError();
   if (raw.promptFeedback?.blockReason) {
-    throw new GeminiError('BLOCKED', `Gemini blocked the prompt (${raw.promptFeedback.blockReason}). Rephrase the input and try again.`);
+    throw new GeminiBlockedError(`Gemini blocked the prompt (${raw.promptFeedback.blockReason}). Rephrase the input and try again.`);
   }
   const candidate = raw.candidates?.[0];
   const finishReason = candidate?.finishReason;
@@ -278,12 +315,15 @@ function extract(raw: RawResponse): { text: string; finishReason?: string } {
 
   if (!text) {
     if (finishReason === 'SAFETY' || finishReason === 'PROHIBITED_CONTENT' || finishReason === 'RECITATION') {
-      throw new GeminiError('BLOCKED', `Gemini withheld the response (${finishReason}). Rephrase the input and try again.`);
+      throw new GeminiBlockedError(`Gemini withheld the response (${finishReason}). Rephrase the input and try again.`);
     }
     if (finishReason === 'MAX_TOKENS') {
-      throw new GeminiError('EMPTY_RESPONSE', 'The output limit was reached before any text was produced. Raise maxOutputTokens.');
+      throw new GeminiTruncatedError('The output limit was reached before any text was produced. Raise maxOutputTokens.');
     }
-    throw new GeminiError('EMPTY_RESPONSE', 'Gemini returned an empty response. Try again.');
+    if (finishReason && finishReason !== 'STOP') {
+      throw new GeminiTruncatedError(`Gemini stopped with finish reason ${finishReason} before producing usable text.`);
+    }
+    throw new GeminiEmptyResponseError();
   }
   return { text, finishReason };
 }
@@ -298,52 +338,62 @@ function usageOf(raw: RawResponse): GenerateResult['usage'] {
 /** Single-shot text generation. */
 export async function generateText(prompt: Prompt, opts: GenerateOptions = {}): Promise<GenerateResult> {
   const apiKey = requireKey();
-  const { model, temperature } = await resolveModel(opts);
+  const { model, temperature, fallbackModels } = await resolveModel(opts);
   const started = performance.now();
 
   let raw: RawResponse;
+  let answeredBy = model;
   try {
-    raw = await requestJson<RawResponse>(
-      `${API_BASE}/models/${encodeURIComponent(model)}:generateContent`,
-      { method: 'POST', headers: headers(apiKey), body: buildBody(prompt, opts, temperature, false) },
-      { timeoutMs: opts.timeoutMs ?? DEFAULT_TIMEOUT_MS, retries: opts.retries ?? 2, signal: opts.signal },
+    const routed = await requestWithFallback([model, ...fallbackModels], (candidateModel) =>
+      requestJson<RawResponse>(
+        `${API_BASE}/models/${encodeURIComponent(candidateModel)}:generateContent`,
+        { method: 'POST', headers: headers(apiKey), body: buildBody(prompt, opts, temperature, false) },
+        { timeoutMs: opts.timeoutMs ?? DEFAULT_TIMEOUT_MS, retries: opts.retries ?? 2, signal: opts.signal, model: candidateModel },
+      ),
     );
+    raw = routed.value;
+    answeredBy = routed.model;
   } catch (err) {
     if (isGeminiError(err)) reportFailure(err, model);
     throw err;
   }
 
   const latencyMs = Math.round(performance.now() - started);
-  const { text, finishReason } = extract(raw);
-  reportSuccess(model, latencyMs);
-  return { text, model, latencyMs, finishReason, usage: usageOf(raw) };
+  const { text, finishReason } = extractGeminiResponse(raw);
+  reportSuccess(answeredBy, latencyMs);
+  return { text, model: answeredBy, latencyMs, finishReason, usage: usageOf(raw) };
 }
 
 /** Generation constrained to JSON, parsed and returned as T. Pass `responseSchema` for best results. */
 export async function generateJson<T = unknown>(prompt: Prompt, opts: GenerateOptions = {}): Promise<{ data: T } & GenerateResult> {
   const apiKey = requireKey();
-  const { model, temperature } = await resolveModel(opts);
+  const { model, temperature, fallbackModels } = await resolveModel(opts);
   const started = performance.now();
 
   let raw: RawResponse;
+  let answeredBy = model;
   try {
-    raw = await requestJson<RawResponse>(
-      `${API_BASE}/models/${encodeURIComponent(model)}:generateContent`,
-      { method: 'POST', headers: headers(apiKey), body: buildBody(prompt, opts, temperature, true) },
-      { timeoutMs: opts.timeoutMs ?? DEFAULT_TIMEOUT_MS, retries: opts.retries ?? 2, signal: opts.signal },
+    const routed = await requestWithFallback([model, ...fallbackModels], (candidateModel) =>
+      requestJson<RawResponse>(
+        `${API_BASE}/models/${encodeURIComponent(candidateModel)}:generateContent`,
+        { method: 'POST', headers: headers(apiKey), body: buildBody(prompt, opts, temperature, true) },
+        { timeoutMs: opts.timeoutMs ?? DEFAULT_TIMEOUT_MS, retries: opts.retries ?? 2, signal: opts.signal, model: candidateModel },
+      ),
     );
+    raw = routed.value;
+    answeredBy = routed.model;
   } catch (err) {
     if (isGeminiError(err)) reportFailure(err, model);
     throw err;
   }
 
   const latencyMs = Math.round(performance.now() - started);
-  const { text, finishReason } = extract(raw);
-  reportSuccess(model, latencyMs);
+  const { text, finishReason } = extractGeminiResponse(raw);
+  reportSuccess(answeredBy, latencyMs);
 
-  const cleaned = text.trim().replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '');
+  const cleaned = safeTrim(text).replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '');
   try {
-    return { data: JSON.parse(cleaned) as T, text, model, latencyMs, finishReason, usage: usageOf(raw) };
+    return { data: JSON.parse(cleaned) as T, text, model: answeredBy, latencyMs, finishReason, usage: usageOf(raw) };
   } catch (err) {
     throw new GeminiError('PARSE', 'Gemini returned malformed JSON. Try again or simplify the request.', { cause: err });
   }
@@ -392,7 +442,7 @@ export async function streamText(
       return; // ignore partial/keep-alive frames
     }
     if (raw.promptFeedback?.blockReason) {
-      throw new GeminiError('BLOCKED', `Gemini blocked the prompt (${raw.promptFeedback.blockReason}).`);
+      throw new GeminiBlockedError(`Gemini blocked the prompt (${raw.promptFeedback.blockReason}).`);
     }
     const cand = raw.candidates?.[0];
     finishReason = cand?.finishReason ?? finishReason;
@@ -420,7 +470,11 @@ export async function streamText(
     throw new GeminiError('NETWORK', 'The connection to Gemini was interrupted while streaming.', { cause: err });
   }
 
-  if (!full) throw new GeminiError('EMPTY_RESPONSE', 'Gemini returned an empty response. Try again.');
+  if (!full) {
+    if (finishReason === 'SAFETY' || finishReason === 'PROHIBITED_CONTENT' || finishReason === 'RECITATION') throw new GeminiBlockedError(`Gemini withheld the response (${finishReason}).`);
+    if (finishReason && finishReason !== 'STOP') throw new GeminiTruncatedError(`Gemini stopped with finish reason ${finishReason} before producing usable text.`);
+    throw new GeminiEmptyResponseError();
+  }
   const latencyMs = Math.round(performance.now() - started);
   reportSuccess(model, latencyMs);
   return { text: full, model, latencyMs, finishReason, usage };
@@ -472,7 +526,7 @@ export interface ConnectionTestResult {
  * without spending generation quota. Updates the header status pill when testing the saved key.
  */
 export async function testConnection(opts: { apiKey?: string; model: string; signal?: AbortSignal }): Promise<ConnectionTestResult> {
-  const candidate = (opts.apiKey ?? getApiKey()).trim();
+  const candidate = safeTrim(opts.apiKey ?? getApiKey());
   const isSavedKey = candidate !== '' && candidate === getApiKey();
 
   if (!candidate) {
