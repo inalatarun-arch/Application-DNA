@@ -48,7 +48,7 @@ export class KeyLockedError extends Error {
   constructor(message = 'The Gemini API key is locked. Unlock it in AI Configuration and try again.') { super(message); this.name = 'KeyLockedError'; }
 }
 
-export class GeminiError extends Error {
+export class GeminiError extends GeminiHttpError {
   readonly code: GeminiErrorCode;
   readonly httpStatus?: number;
   /** Server-suggested wait before retrying (quota / overload). */
@@ -59,7 +59,7 @@ export class GeminiError extends Error {
     message: string,
     extra: { httpStatus?: number; retryAfterMs?: number; cause?: unknown } = {},
   ) {
-    super(message, { cause: extra.cause });
+    super(extra.httpStatus ?? 0, message);
     this.name = 'GeminiError';
     this.code = code;
     this.httpStatus = extra.httpStatus;
@@ -264,10 +264,27 @@ function reportSuccess(model: string, latencyMs: number): void {
   setStatus({ phase: 'connected', model, latencyMs, checkedAt: Date.now() });
 }
 
-async function resolveModel(opts: GenerateOptions): Promise<{ model: string; temperature: number }> {
+async function resolveModel(opts: GenerateOptions): Promise<{ model: string; temperature: number; fallbackModels: string[] }> {
   const settings = await getAiSettings();
   const model = opts.model ?? (opts.feature ? settings.featureModels[opts.feature] : undefined) ?? settings.defaultModel;
-  return { model, temperature: opts.temperature ?? settings.temperature };
+  const fallbackModels = opts.model ? [] : settings.fallbackModels.filter((candidate) => candidate !== model);
+  return { model, temperature: opts.temperature ?? settings.temperature, fallbackModels };
+}
+
+async function requestWithFallback<T>(
+  models: string[],
+  request: (model: string) => Promise<T>,
+): Promise<{ value: T; model: string }> {
+  let lastError: unknown;
+  for (const model of models) {
+    try {
+      return { value: await request(model), model };
+    } catch (err) {
+      lastError = err;
+      if (!(err instanceof GeminiError) || !['MODEL_NOT_FOUND', 'SERVER_ERROR'].includes(err.code)) throw err;
+    }
+  }
+  throw lastError;
 }
 
 function buildBody(prompt: Prompt, opts: GenerateOptions, temperature: number, json: boolean): string {
@@ -318,16 +335,19 @@ function usageOf(raw: RawResponse): GenerateResult['usage'] {
 /** Single-shot text generation. */
 export async function generateText(prompt: Prompt, opts: GenerateOptions = {}): Promise<GenerateResult> {
   const apiKey = requireKey();
-  const { model, temperature } = await resolveModel(opts);
+  const { model, temperature, fallbackModels } = await resolveModel(opts);
   const started = performance.now();
 
   let raw: RawResponse;
   try {
-    raw = await requestJson<RawResponse>(
-      `${API_BASE}/models/${encodeURIComponent(model)}:generateContent`,
-      { method: 'POST', headers: headers(apiKey), body: buildBody(prompt, opts, temperature, false) },
-      { timeoutMs: opts.timeoutMs ?? DEFAULT_TIMEOUT_MS, retries: opts.retries ?? 2, signal: opts.signal, model },
+    const routed = await requestWithFallback([model, ...fallbackModels], (candidateModel) =>
+      requestJson<RawResponse>(
+        `${API_BASE}/models/${encodeURIComponent(candidateModel)}:generateContent`,
+        { method: 'POST', headers: headers(apiKey), body: buildBody(prompt, opts, temperature, false) },
+        { timeoutMs: opts.timeoutMs ?? DEFAULT_TIMEOUT_MS, retries: opts.retries ?? 2, signal: opts.signal, model: candidateModel },
+      ),
     );
+    raw = routed.value;
   } catch (err) {
     if (isGeminiError(err)) reportFailure(err, model);
     throw err;
@@ -335,8 +355,9 @@ export async function generateText(prompt: Prompt, opts: GenerateOptions = {}): 
 
   const latencyMs = Math.round(performance.now() - started);
   const { text, finishReason } = extract(raw);
-  reportSuccess(model, latencyMs);
-  return { text, model, latencyMs, finishReason, usage: usageOf(raw) };
+  const answeredBy = routed?.model ?? model;
+  reportSuccess(answeredBy, latencyMs);
+  return { text, model: answeredBy, latencyMs, finishReason, usage: usageOf(raw) };
 }
 
 /** Generation constrained to JSON, parsed and returned as T. Pass `responseSchema` for best results. */
