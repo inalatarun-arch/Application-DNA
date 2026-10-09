@@ -373,13 +373,26 @@ export async function generateJson<T = unknown>(prompt: Prompt, opts: GenerateOp
   let raw: RawResponse;
   let answeredBy = model;
   try {
-    const routed = await requestWithFallback([model, ...fallbackModels], (candidateModel) =>
-      requestJson<RawResponse>(
-        `${API_BASE}/models/${encodeURIComponent(candidateModel)}:generateContent`,
-        { method: 'POST', headers: headers(apiKey), body: buildBody(prompt, opts, temperature, true) },
-        { timeoutMs: opts.timeoutMs ?? DEFAULT_TIMEOUT_MS, retries: opts.retries ?? 2, signal: opts.signal, model: candidateModel },
-      ),
-    );
+    const routed = await requestWithFallback([model, ...fallbackModels], async (candidateModel) => {
+      const url = `${API_BASE}/models/${encodeURIComponent(candidateModel)}:generateContent`;
+      const requestOptions = { timeoutMs: opts.timeoutMs ?? DEFAULT_TIMEOUT_MS, retries: opts.retries ?? 2, signal: opts.signal, model: candidateModel };
+      try {
+        return await requestJson<RawResponse>(
+          url,
+          { method: 'POST', headers: headers(apiKey), body: buildBody(prompt, opts, temperature, true) },
+          requestOptions,
+        );
+      } catch (err) {
+        // Some feature schemas are incomplete or exceed the schema subset supported by a given
+        // Gemini model. Retry once in JSON mode without responseSchema before failing the feature.
+        if (!opts.responseSchema || !isGeminiError(err) || err.code !== 'BAD_REQUEST') throw err;
+        return requestJson<RawResponse>(
+          url,
+          { method: 'POST', headers: headers(apiKey), body: buildBody(prompt, { ...opts, responseSchema: undefined }, temperature, true) },
+          requestOptions,
+        );
+      }
+    });
     raw = routed.value;
     answeredBy = routed.model;
   } catch (err) {
