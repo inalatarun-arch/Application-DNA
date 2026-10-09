@@ -197,7 +197,6 @@ export async function extractApplicationKnowledge(
   const result = await generateJson<ApplicationExtraction>(prompt, {
     feature: 'application-ingestion',
     system: SYSTEM,
-    responseSchema: SCHEMA as unknown as Record<string, unknown>,
     temperature: 0.2,
     maxOutputTokens: 32768,
     signal,
