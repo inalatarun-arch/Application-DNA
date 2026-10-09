@@ -69,18 +69,6 @@ export interface ApplicationExtraction {
   }>;
 }
 
-const SCHEMA = {
-  type: 'OBJECT',
-  properties: {
-    application: { type: 'OBJECT' },
-    modules: { type: 'ARRAY', items: { type: 'OBJECT' } },
-    screens: { type: 'ARRAY', items: { type: 'OBJECT' } },
-    functionalities: { type: 'ARRAY', items: { type: 'OBJECT' } },
-    technicalComponents: { type: 'ARRAY', items: { type: 'OBJECT' } },
-  },
-  required: ['application', 'modules', 'screens', 'functionalities', 'technicalComponents'],
-} as const;
-
 const COMPONENT_KINDS: TechnicalComponent['kind'][] = ['class','package','method','service','api','table','view','procedure','trigger','rest','soap','middleware','queue','server','cloud','job'];
 const UI_TYPES: UiElementAI['type'][] = ['field','input','button','link','table','other'];
 
