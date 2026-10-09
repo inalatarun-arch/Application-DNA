@@ -190,7 +190,7 @@ export async function extractApplicationKnowledge(
   signal?: AbortSignal,
 ): Promise<{ data: ApplicationExtraction; model: string }> {
   const prompt: GeminiContent[] = [
-    { role: 'user', parts: [{ text: `${context(app, modules, screens, functionalities, components)}\\n\\nUSER DESCRIPTION\\n${userText || '(none)'}` }] },
+    { role: 'user', parts: [{ text: `${context(app, modules, screens, functionalities, components)}\n\nUSER DESCRIPTION\n${userText || '(none)'}` }] },
     ...attachments,
     { role: 'user', parts: [{ text: 'Now return the complete structured edit plan. Include all changes supported by the description and files, including modules that need to be created or edited together.' }] },
   ];
