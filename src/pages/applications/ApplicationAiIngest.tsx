@@ -48,7 +48,7 @@ export default function ApplicationAiIngest({ applicationId }: { applicationId: 
           <button type="button" className="btn btn-secondary" onClick={() => fileInput.current?.click()} disabled={busy}>
             <FileUp size={16} aria-hidden /> Attach files
           </button>
-          <input ref={fileInput} type="file" multiple className="sr-only" onChange={(e) => { setFiles(Array.from(e.target.files ?? [])); e.target.value = ''; }} />
+          <input ref={fileInput} type="file" accept=".txt,.md,.csv,.json,.xml,.yaml,.yml,.log,.sql,.graphql,.js,.ts,.tsx,.jsx,.css,.html,.pdf,.docx,.xlsx,.xls,.png,.jpg,.jpeg,.webp" multiple className="sr-only" onChange={(e) => { setFiles(Array.from(e.target.files ?? [])); e.target.value = ''; }} />
           {files.length > 0 && <span className="text-label-md text-on-surface-variant">{files.length} file{files.length === 1 ? '' : 's'} selected</span>}
           {busy ? (
             <button type="button" className="btn btn-secondary" onClick={() => abort.current?.abort()}><Square size={14} aria-hidden /> Cancel</button>
@@ -56,7 +56,7 @@ export default function ApplicationAiIngest({ applicationId }: { applicationId: 
             <button type="button" className="btn btn-primary" disabled={!apiKey || (!text.trim() && files.length === 0)} onClick={() => void run()}><Sparkles size={16} aria-hidden /> Analyse & update application</button>
           )}
         </div>
-        <p className="field-hint">Screenshots are attached to the screens Gemini maps them to. Supported uploads depend on the selected Gemini model; individual files are limited to 12 MB.</p>
+        <p className="field-hint">TXT, Markdown, CSV, JSON, PDF, Word (DOCX), Excel (XLSX/XLS), PNG, JPG and WebP are supported. Each file is limited to 12 MB and the combined upload to 14 MB. Word and Excel content is extracted in the browser before it is sent to Gemini; PDF and image files are sent as supported binary inputs.</p>
         {!apiKey && <p className="rounded border border-outline-variant bg-surface-low p-3 text-body-md">Configure Gemini in Settings → AI Configuration to enable AI capture.</p>}
         {busy && <p role="status" className="inline-flex items-center gap-2 text-body-md text-on-surface-variant"><Loader2 size={14} className="animate-spin" /> Reading the application evidence…</p>}
         {notice && <p role="status" className="rounded border border-outline-variant bg-surface-low p-3 text-body-md">{notice}</p>}
