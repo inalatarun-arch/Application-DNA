@@ -16,26 +16,26 @@ export interface Palette {
 
 export const LIGHT: Palette = {
   bg: '#ffffff',
-  panel: '#f8f9fb',
-  panelAlt: '#f3f4f6',
-  border: '#c6c6cd',
-  text: '#191c1e',
-  muted: '#45464c',
-  accent: '#111827',
+  panel: '#f6f8f8',
+  panelAlt: '#f0f3f3',
+  border: '#cbd4d4',
+  text: '#141c1c',
+  muted: '#424f4f',
+  accent: '#0f766e',
   onAccent: '#ffffff',
-  edge: '#76777d',
+  edge: '#6e7c7c',
 };
 
 export const DARK: Palette = {
-  bg: '#131c31',
-  panel: '#0f172a',
-  panelAlt: '#1e293b',
-  border: '#334155',
-  text: '#e2e8f0',
-  muted: '#94a3b8',
-  accent: '#f1f5f9',
-  onAccent: '#0f172a',
-  edge: '#64748b',
+  bg: '#111919',
+  panel: '#0d1414',
+  panelAlt: '#1b2626',
+  border: '#2c3c3c',
+  text: '#e2eded',
+  muted: '#94a8a8',
+  accent: '#2dd4bf',
+  onAccent: '#042826',
+  edge: '#648484',
 };
 
 export const paletteFor = (theme: 'light' | 'dark'): Palette => (theme === 'dark' ? DARK : LIGHT);

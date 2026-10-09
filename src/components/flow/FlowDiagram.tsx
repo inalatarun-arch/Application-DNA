@@ -111,7 +111,7 @@ export default function FlowDiagram({ layout, view, palette, title, idPrefix, sc
             role={clickable ? 'link' : undefined}
             tabIndex={clickable ? 0 : undefined}
           >
-            <title>{[n.label, n.detail].filter(Boolean).join(' — ')}</title>
+            <title>{[n.label, n.detail].filter(Boolean).join(', ')}</title>
             <NodeShape n={n} palette={palette} />
             <text x={n.x} y={n.y - ((lines.length - 1) * 7)} textAnchor="middle" dominantBaseline="central" fontSize={12} fontWeight={n.kind === 'step' ? 500 : 600} fill={textColor}>
               {lines.map((line, li) => (

@@ -113,7 +113,7 @@ export default function KnowledgeGraphPage() {
                 aria-label="Search nodes"
               />
               {q && matches.length > 0 && (
-                <ul className="absolute left-0 right-0 top-full z-20 mt-1 max-h-64 overflow-y-auto rounded border-2 border-primary bg-surface-lowest" role="listbox" aria-label="Matching nodes">
+                <ul className="absolute left-0 right-0 top-full z-20 mt-1 max-h-64 overflow-y-auto rounded-lg border border-outline-variant bg-surface-lowest shadow-pop" role="listbox" aria-label="Matching nodes">
                   {matches.slice(0, 8).map((n) => (
                     <li key={n.id} role="option" aria-selected={n.id === selectedId}>
                       <button type="button" className="flex w-full items-center gap-2 px-3 py-2 text-left hover:bg-surface-container" onClick={() => { pick(n.id); setQuery(''); }}>
@@ -199,7 +199,7 @@ export default function KnowledgeGraphPage() {
             </div>
 
             {layoutOpen && (
-              <div role="dialog" aria-label="Layout and spacing" className="absolute left-14 top-3 z-10 w-72 max-w-[calc(100%-4.5rem)] rounded border-2 border-primary bg-surface-lowest p-4">
+              <div role="dialog" aria-label="Layout and spacing" className="absolute left-14 top-3 z-10 w-72 max-w-[calc(100%-4.5rem)] rounded-lg border border-outline-variant bg-surface-lowest shadow-pop p-4">
                 <div className="mb-3 flex items-start justify-between gap-2">
                   <h2 className="text-body-md font-semibold">Layout and spacing</h2>
                   <button type="button" className="icon-btn -mr-2 -mt-2" onClick={() => setLayoutOpen(false)} aria-label="Close layout panel">

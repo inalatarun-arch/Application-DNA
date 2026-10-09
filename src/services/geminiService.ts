@@ -3,8 +3,10 @@
  * Every AI feature (transcripts, FRD/TDD, impact analysis, Copilot...) calls through here so that
  * key handling, model routing, retries and error mapping live in exactly one place.
  */
-import { getApiKey } from './apiKeyStore';
+import { getApiKey, getProxy } from './apiKeyStore';
 import { setStatus } from './geminiStatus';
+import { getVaultSnapshot } from '@/lib/vault';
+import { parseJsonLoose } from '@/lib/jsonRepair';
 import { getAiSettings } from '@/db/settings';
 import type { AiFeature } from '@/config/ai';
 import { safeTrim } from '@/lib/safeValue';
@@ -44,10 +46,6 @@ export class GeminiEmptyResponseError extends Error {
 export class GeminiTruncatedError extends Error {
   constructor(message = 'Gemini stopped before completing the response. Raise maxOutputTokens and try again.') { super(message); this.name = 'GeminiTruncatedError'; }
 }
-export class KeyLockedError extends Error {
-  constructor(message = 'The Gemini API key is locked. Unlock it in AI Configuration and try again.') { super(message); this.name = 'KeyLockedError'; }
-}
-
 export class GeminiError extends GeminiHttpError {
   readonly code: GeminiErrorCode;
   readonly httpStatus?: number;
@@ -64,6 +62,14 @@ export class GeminiError extends GeminiHttpError {
     this.code = code;
     this.httpStatus = extra.httpStatus;
     this.retryAfterMs = extra.retryAfterMs;
+  }
+}
+
+/** Thrown when a key is saved but still encrypted for this session. Reported as MISSING_KEY so callers treat it uniformly. */
+export class KeyLockedError extends GeminiError {
+  constructor(message = 'Your Gemini API key is locked for this session. Unlock it with the banner at the top of the page or in Settings, then try again.') {
+    super('MISSING_KEY', message);
+    this.name = 'KeyLockedError';
   }
 }
 
@@ -103,6 +109,8 @@ export interface GenerateOptions {
   timeoutMs?: number;
   /** Automatic retries for transient failures (default 2). */
   retries?: number;
+  /** generateJson only: how many times to re-ask at temperature 0 when the reply cannot be parsed even after repair (default 1). */
+  jsonRetries?: number;
 }
 
 export interface GenerateResult {
@@ -124,19 +132,31 @@ export interface RawResponse {
 
 // ---------------------------------------------------------------- low-level helpers
 
-function requireKey(override?: string): string {
-  const key = safeTrim(override ?? getApiKey());
-  if (!key) {
-    throw new GeminiError('MISSING_KEY', 'No Gemini API key is configured. Add one in Settings → AI Configuration.');
-  }
-  return key;
+/** Base URL for Gemini: Google directly, or the configured server proxy that holds the key. */
+function apiBase(): string {
+  const { url } = getProxy();
+  return url ? `${url}/v1beta` : API_BASE;
 }
 
-const headers = (apiKey: string): HeadersInit => ({
-  'Content-Type': 'application/json',
+/** The key to send, '' when a proxy supplies credentials. Throws when none is available. */
+function requireKey(override?: string): string {
+  const given = safeTrim(override);
+  if (given) return given;
+  if (getProxy().url) return '';
+  const key = safeTrim(getApiKey());
+  if (key) return key;
+  if (getVaultSnapshot().hasVault) throw new KeyLockedError();
+  throw new GeminiError('MISSING_KEY', 'No Gemini API key is configured. Add one in Settings, AI Configuration.');
+}
+
+const headers = (apiKey: string): HeadersInit => {
+  const h: Record<string, string> = { 'Content-Type': 'application/json' };
   // Header (not ?key=) keeps the key out of URLs, history and proxy logs.
-  'x-goog-api-key': apiKey,
-});
+  if (apiKey) h['x-goog-api-key'] = apiKey;
+  const { url, token } = getProxy();
+  if (url && token && !apiKey) h.Authorization = `Bearer ${token}`;
+  return h;
+};
 
 function sleep(ms: number, signal?: AbortSignal): Promise<void> {
   return new Promise((resolve, reject) => {
@@ -346,7 +366,7 @@ export async function generateText(prompt: Prompt, opts: GenerateOptions = {}): 
   try {
     const routed = await requestWithFallback([model, ...fallbackModels], (candidateModel) =>
       requestJson<RawResponse>(
-        `${API_BASE}/models/${encodeURIComponent(candidateModel)}:generateContent`,
+        `${apiBase()}/models/${encodeURIComponent(candidateModel)}:generateContent`,
         { method: 'POST', headers: headers(apiKey), body: buildBody(prompt, opts, temperature, false) },
         { timeoutMs: opts.timeoutMs ?? DEFAULT_TIMEOUT_MS, retries: opts.retries ?? 2, signal: opts.signal, model: candidateModel },
       ),
@@ -365,7 +385,7 @@ export async function generateText(prompt: Prompt, opts: GenerateOptions = {}): 
 }
 
 /** Generation constrained to JSON, parsed and returned as T. Pass `responseSchema` for best results. */
-export async function generateJson<T = unknown>(prompt: Prompt, opts: GenerateOptions = {}): Promise<{ data: T } & GenerateResult> {
+export async function generateJson<T = unknown>(prompt: Prompt, opts: GenerateOptions = {}): Promise<{ data: T; repaired?: boolean } & GenerateResult> {
   const apiKey = requireKey();
   const { model, temperature, fallbackModels } = await resolveModel(opts);
   const started = performance.now();
@@ -374,7 +394,7 @@ export async function generateJson<T = unknown>(prompt: Prompt, opts: GenerateOp
   let answeredBy = model;
   try {
     const routed = await requestWithFallback([model, ...fallbackModels], async (candidateModel) => {
-      const url = `${API_BASE}/models/${encodeURIComponent(candidateModel)}:generateContent`;
+      const url = `${apiBase()}/models/${encodeURIComponent(candidateModel)}:generateContent`;
       const requestOptions = { timeoutMs: opts.timeoutMs ?? DEFAULT_TIMEOUT_MS, retries: opts.retries ?? 2, signal: opts.signal, model: candidateModel };
       try {
         return await requestJson<RawResponse>(
@@ -404,12 +424,38 @@ export async function generateJson<T = unknown>(prompt: Prompt, opts: GenerateOp
   const { text, finishReason } = extractGeminiResponse(raw);
   reportSuccess(answeredBy, latencyMs);
 
-  const cleaned = safeTrim(text).replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '');
   try {
-    return { data: JSON.parse(cleaned) as T, text, model: answeredBy, latencyMs, finishReason, usage: usageOf(raw) };
+    // Repairs fences and output cut off mid-way (MAX_TOKENS), keeping everything that was completed.
+    const { value, repaired } = parseJsonLoose<T>(text);
+    return { data: value, repaired, text, model: answeredBy, latencyMs, finishReason, usage: usageOf(raw) };
   } catch (err) {
-    throw new GeminiError('PARSE', 'Gemini returned malformed JSON. Try again or simplify the request.', { cause: err });
+    const retries = opts.jsonRetries ?? 1;
+    if (retries > 0 && finishReason !== 'MAX_TOKENS') {
+      return generateJson<T>(prompt, { ...opts, temperature: 0, jsonRetries: retries - 1 });
+    }
+    const why = finishReason === 'MAX_TOKENS' ? 'The reply was cut off by the output limit. Try a smaller input or split the work.' : 'Gemini returned malformed JSON. Try again or simplify the request.';
+    throw new GeminiError('PARSE', why, { cause: err });
   }
+}
+
+/**
+ * Long-form text that may exceed one reply. When Gemini stops at the output limit, asks it to continue
+ * from where it stopped and joins the parts (at most `maxParts`).
+ */
+export async function generateTextLong(prompt: Prompt, opts: GenerateOptions = {}, maxParts = 4): Promise<GenerateResult & { parts: number }> {
+  const contents: GeminiContent[] = typeof prompt === 'string' ? [{ role: 'user', parts: [{ text: prompt }] }] : [...prompt];
+  let total = '';
+  let last = await generateText(contents, opts);
+  total = last.text;
+  let parts = 1;
+  while (last.finishReason === 'MAX_TOKENS' && parts < maxParts) {
+    contents.push({ role: 'model', parts: [{ text: last.text }] });
+    contents.push({ role: 'user', parts: [{ text: 'Continue exactly where you stopped. Do not repeat anything already written and do not add commentary.' }] });
+    last = await generateText(contents, opts);
+    total += last.text;
+    parts++;
+  }
+  return { ...last, text: total, parts };
 }
 
 /** Streaming generation (Server-Sent Events). `onChunk` receives each delta and the accumulated text. */
@@ -425,7 +471,7 @@ export async function streamText(
   let res: Response;
   try {
     res = await fetchWithTimeout(
-      `${API_BASE}/models/${encodeURIComponent(model)}:streamGenerateContent?alt=sse`,
+      `${apiBase()}/models/${encodeURIComponent(model)}:streamGenerateContent?alt=sse`,
       { method: 'POST', headers: headers(apiKey), body: buildBody(prompt, opts, temperature, false) },
       opts.timeoutMs ?? DEFAULT_TIMEOUT_MS,
       opts.signal,
@@ -511,7 +557,7 @@ export async function listAvailableModels(apiKeyOverride?: string): Promise<Gemi
     const query = new URLSearchParams({ pageSize: '1000' });
     if (pageToken) query.set('pageToken', pageToken);
     const data = await requestJson<{ models?: Array<{ name?: string; displayName?: string; description?: string; version?: string; inputTokenLimit?: number; outputTokenLimit?: number; supportedGenerationMethods?: string[] }>; nextPageToken?: string }>(
-      `${API_BASE}/models?${query.toString()}`,
+      `${apiBase()}/models?${query.toString()}`,
       { method: 'GET', headers: headers(key) },
       { timeoutMs: 15_000, retries: 1 },
     );
@@ -539,10 +585,11 @@ export interface ConnectionTestResult {
  * without spending generation quota. Updates the header status pill when testing the saved key.
  */
 export async function testConnection(opts: { apiKey?: string; model: string; signal?: AbortSignal }): Promise<ConnectionTestResult> {
-  const candidate = safeTrim(opts.apiKey ?? getApiKey());
-  const isSavedKey = candidate !== '' && candidate === getApiKey();
+  const viaProxy = !safeTrim(opts.apiKey) && !!getProxy().url;
+  const candidate = viaProxy ? '' : safeTrim(opts.apiKey ?? getApiKey());
+  const isSavedKey = viaProxy || (candidate !== '' && candidate === getApiKey());
 
-  if (!candidate) {
+  if (!candidate && !viaProxy) {
     return { ok: false, model: opts.model, code: 'MISSING_KEY', message: 'Enter an API key first.' };
   }
   if (isSavedKey) setStatus({ phase: 'checking', model: opts.model });
@@ -550,7 +597,7 @@ export async function testConnection(opts: { apiKey?: string; model: string; sig
   const started = performance.now();
   try {
     await requestJson<{ name?: string }>(
-      `${API_BASE}/models/${encodeURIComponent(opts.model)}`,
+      `${apiBase()}/models/${encodeURIComponent(opts.model)}`,
       { method: 'GET', headers: headers(candidate) },
       { timeoutMs: 15_000, retries: 0, signal: opts.signal },
     );

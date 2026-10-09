@@ -1,4 +1,5 @@
 import { db, newId, nowIso } from './db';
+import { defaultFrdHeadings } from '@/lib/fddTemplate';
 import type { DeliveryDocument, DeliveryDocumentType, DeliveryDocumentVersion, DeliveryApproval, OrganizationTemplate, DeliveryStory, RequirementTrace } from './types';
 
 export const DEFAULT_APPROVAL_MATRIX = [
@@ -11,12 +12,17 @@ export const DEFAULT_APPROVAL_MATRIX = [
 export const DEFAULT_FRD = ['# Business Overview','# Scope','# Current Process','# Future Process','# Functional Requirements','# Non-Functional Requirements','# Assumptions','# Risks','# Process Diagrams','# Security','# Reporting','# Approval Sign-off'];
 export const DEFAULT_TDD = ['# Architecture','# Components','# Data Design','# APIs','# Integrations','# Error Handling','# Deployment','# Security','# Performance'];
 
+/** Keeps the stored FRD template on the five-section FDD headings; a template the user edited is left alone. */
 export async function ensureDefaultTemplates(): Promise<void> {
-  for (const [type, headings] of [['frd', DEFAULT_FRD], ['tdd', DEFAULT_TDD]] as const) {
-    if (!(await db.organizationTemplates.where('type').equals(type).count())) {
-      const now = nowIso();
-      const t: OrganizationTemplate = { id:newId(), createdAt:now, updatedAt:now, name:`Default ${type.toUpperCase()} template`, type, markdownHeadings:headings.join('\n'), active:true };
+  const fdd = defaultFrdHeadings().join('\n');
+  for (const [type, headings] of [['frd', fdd], ['tdd', DEFAULT_TDD.join('\n')]] as const) {
+    const existing = await db.organizationTemplates.where('type').equals(type).first();
+    const now = nowIso();
+    if (!existing) {
+      const t: OrganizationTemplate = { id:newId(), createdAt:now, updatedAt:now, name:type==='frd'?'Default FDD template':'Default TDD template', type, markdownHeadings:headings, active:true };
       await db.organizationTemplates.add(t);
+    } else if (type === 'frd' && existing.markdownHeadings.trim() === DEFAULT_FRD.join('\n')) {
+      await db.organizationTemplates.update(existing.id, { markdownHeadings: headings, name: 'Default FDD template', updatedAt: now });
     }
   }
 }
@@ -58,14 +64,26 @@ export async function decideDocument(documentId:string,role:DeliveryApproval['ro
   });
 }
 
-export async function generateRequirementStories(projectId:string):Promise<DeliveryStory[]> {
-  const reqs=await db.requirements.where('projectId').equals(projectId).toArray(); const out:DeliveryStory[]=[];
-  for(const r of reqs.filter(x=>x.status==='approved')) {
-    const existing=await db.deliveryStories.where('projectId').equals(projectId).filter(s=>s.requirementIds.includes(r.id)).first();
-    const story=existing ?? {id:newId(),createdAt:nowIso(),updatedAt:nowIso(),projectId,requirementIds:[r.id],title:r.title,asA:'As a user',iWant:r.description,soThat:'So that the business outcome is achieved.',acceptanceCriteria:r.acceptanceCriteria,businessRules:[],priority:r.priority??'medium',status:'backlog' as const};
-    if(existing) await db.deliveryStories.update(existing.id,{...story,updatedAt:nowIso()}); else await db.deliveryStories.add(story);
-    const trace:RequirementTrace={id:newId(),createdAt:nowIso(),updatedAt:nowIso(),projectId,requirementId:r.id,storyId:story.id,testCaseIds:[]};
-    await db.requirementTraces.add(trace); out.push(story);
-  } return out;
+export interface StoryDraft { requirementId: string; title: string; asA: string; iWant: string; soThat: string; acceptanceCriteria: string[]; businessRules: string[]; priority: 'low'|'medium'|'high' }
+
+/** Saves stories written by the AI and links each to its requirement. Existing stories with the same title are kept as they are. */
+export async function saveGeneratedStories(projectId:string,drafts:StoryDraft[]):Promise<{created:number;skipped:number}> {
+  let created=0, skipped=0;
+  await db.transaction('rw',[db.deliveryStories,db.requirementTraces],async()=>{
+    const have=await db.deliveryStories.where('projectId').equals(projectId).toArray();
+    const seen=new Set(have.map(s=>s.title.trim().toLowerCase()));
+    for(const d of drafts){
+      const key=d.title.trim().toLowerCase();
+      if(!key||seen.has(key)){skipped++;continue;}
+      seen.add(key);
+      const now=nowIso();
+      const story:DeliveryStory={id:newId(),createdAt:now,updatedAt:now,projectId,requirementIds:[d.requirementId],title:d.title.trim(),asA:d.asA,iWant:d.iWant,soThat:d.soThat,acceptanceCriteria:d.acceptanceCriteria,businessRules:d.businessRules,priority:d.priority,status:'backlog'};
+      await db.deliveryStories.add(story);
+      const trace:RequirementTrace={id:newId(),createdAt:now,updatedAt:now,projectId,requirementId:d.requirementId,storyId:story.id,testCaseIds:[]};
+      await db.requirementTraces.add(trace);
+      created++;
+    }
+  });
+  return {created,skipped};
 }
 export async function buildRtm(projectId:string){ return db.requirementTraces.where('projectId').equals(projectId).toArray(); }

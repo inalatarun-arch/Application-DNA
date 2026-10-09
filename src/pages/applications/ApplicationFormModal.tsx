@@ -104,12 +104,12 @@ export default function ApplicationFormModal({ open, application, onClose, onSav
         <div>
           <label htmlFor={id('tier')} className="field-label">Critical tier</label>
           <select id={id('tier')} className="input" value={form.criticalTier} onChange={(e) => set('criticalTier', e.target.value as CriticalTier)}>
-            {CRITICAL_TIERS.map((t) => <option key={t.id} value={t.id}>{t.label} — {t.description}</option>)}
+            {CRITICAL_TIERS.map((t) => <option key={t.id} value={t.id}>{t.label}: {t.description}</option>)}
           </select>
         </div>
         <div className="md:col-span-2">
           <label htmlFor={id('stack')} className="field-label">Technical stack</label>
-          <TagInput id={id('stack')} value={form.technicalStack} onChange={(v) => set('technicalStack', v)} placeholder="e.g. PL/SQL, Oracle Forms — press Enter to add" />
+          <TagInput id={id('stack')} value={form.technicalStack} onChange={(v) => set('technicalStack', v)} placeholder="e.g. PL/SQL, Oracle Forms, press Enter to add" />
         </div>
         <div>
           <label htmlFor={id('bo')} className="field-label">Business owner</label>

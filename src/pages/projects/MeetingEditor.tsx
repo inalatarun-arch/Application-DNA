@@ -171,7 +171,8 @@ export default function MeetingEditor({ meeting, project, onReview, onDeleted }:
       update(patch);
       setNotice(
         `Done with ${result.model}: ${result.decisions.length} decisions, ${result.actionItems.length} action items and ${result.requirements.length} suggested requirements.` +
-          (result.truncated ? ` The transcript is longer than ${MAX_TRANSCRIPT_CHARS.toLocaleString()} characters, so only the beginning was read.` : ''),
+          (result.truncated ? ` The transcript is longer than ${MAX_TRANSCRIPT_CHARS.toLocaleString()} characters, so only the beginning was read.` : '') +
+          (result.outputCut ? ' The reply was cut off, so some later items may be missing. Split the transcript into parts and process each.' : ''),
       );
     } catch (err) {
       if (isGeminiError(err) && err.code === 'ABORTED') {

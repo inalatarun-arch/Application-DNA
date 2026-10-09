@@ -84,7 +84,7 @@ export default function CatalogSearchPage() {
                       </Link>
                     </td>
                     <td className="px-4 py-3 text-on-surface-variant">{h.path}</td>
-                    <td className="px-4 py-3 text-on-surface-variant">{h.matchedIn ?? '—'}</td>
+                    <td className="px-4 py-3 text-on-surface-variant">{h.matchedIn ?? '-'}</td>
                   </tr>
                 ))}
               </tbody>

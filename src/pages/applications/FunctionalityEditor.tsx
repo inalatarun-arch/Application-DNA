@@ -48,7 +48,7 @@ export default function FunctionalityEditor({ functionality, relatedOptions, onD
       <div className="grid gap-4 md:grid-cols-2">
         <div className="md:col-span-2">
           <label htmlFor={id('roles')} className="field-label">User roles</label>
-          <TagInput id={id('roles')} value={draft.userRoles} onChange={(v) => update({ userRoles: v })} placeholder="Who can perform this — press Enter to add" />
+          <TagInput id={id('roles')} value={draft.userRoles} onChange={(v) => update({ userRoles: v })} placeholder="Who can perform this, press Enter to add" />
         </div>
         <div className="md:col-span-2">
           <StringListEditor label="Business triggers" items={draft.triggers} onChange={(v) => update({ triggers: v })} addLabel="Add trigger" placeholder="What starts this functionality" />

@@ -11,12 +11,13 @@ import ConfirmModal from '@/components/ui/ConfirmModal';
 import QuickCreateModal from '@/components/ui/QuickCreateModal';
 import EmptyState from '@/components/ui/EmptyState';
 import AiScreenCreateModal from './AiScreenCreateModal';
+import PageSkeleton from '@/components/ui/Skeleton';
 
 export default function ModuleDetailPage() {
   const { appId = '', moduleId = '' } = useParams();
   const mod = useLiveQuery(() => db.modules.get(moduleId).then((m) => m ?? null), [moduleId]);
 
-  if (mod === undefined) return <p className="text-body-md text-on-surface-variant">Loading…</p>;
+  if (mod === undefined) return <PageSkeleton />;
   if (mod === null) {
     return (
       <EmptyState icon={Layers} title="Module not found" description="It may have been deleted.">

@@ -1,4 +1,4 @@
-import { getApiKey, subscribeApiKey } from './apiKeyStore';
+import { getAiAccess, subscribeApiKey } from './apiKeyStore';
 
 export type GeminiPhase = 'missing' | 'untested' | 'checking' | 'retrying' | 'connected' | 'quota' | 'error';
 
@@ -16,7 +16,7 @@ const STORAGE_KEY = 'eih.gemini.status';
 const PERSISTED: GeminiPhase[] = ['connected', 'quota', 'error'];
 
 function initial(): GeminiStatus {
-  if (!getApiKey()) return { phase: 'missing' };
+  if (!getAiAccess()) return { phase: 'missing' };
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (raw) {
@@ -58,5 +58,5 @@ subscribeApiKey(() => {
   } catch {
     /* ignore */
   }
-  setStatus(getApiKey() ? { phase: 'untested' } : { phase: 'missing' });
+  setStatus(getAiAccess() ? { phase: 'untested' } : { phase: 'missing' });
 });

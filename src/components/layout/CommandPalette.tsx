@@ -97,12 +97,12 @@ export default function CommandPalette({ open, onClose }: Props) {
   );
 
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/50 p-4 pt-[15vh]" onMouseDown={onClose}>
+    <div className="fixed inset-0 z-50 flex items-start justify-center bg-on-surface/40 backdrop-blur-[2px] p-4 pt-[15vh]" onMouseDown={onClose}>
       <div
         role="dialog"
         aria-modal="true"
         aria-label="Search"
-        className="w-full max-w-lg rounded border-2 border-primary bg-surface-lowest"
+        className="w-full max-w-lg rounded-lg border border-outline-variant bg-surface-lowest shadow-pop"
         onMouseDown={(e) => e.stopPropagation()}
         onKeyDown={onKeyDown}
       >

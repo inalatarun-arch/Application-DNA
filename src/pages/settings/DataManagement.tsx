@@ -150,7 +150,7 @@ export default function DataManagement() {
       </div>
 
       {pending && pendingCounts && (
-        <div className="mt-6 rounded border-2 border-primary p-4" role="alertdialog" aria-labelledby="restore-title">
+        <div className="mt-6 rounded-lg border border-primary p-4" role="alertdialog" aria-labelledby="restore-title">
           <p id="restore-title" className="flex items-center gap-2 font-semibold">
             <AlertTriangle size={18} aria-hidden /> Replace all local data?
           </p>

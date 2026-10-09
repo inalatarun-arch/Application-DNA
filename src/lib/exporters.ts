@@ -12,7 +12,7 @@ const bullets = (xs: string[]) => (xs.length ? xs.map((x) => `- ${x}`).join('\n'
 export function meetingToMarkdown(meeting: Meeting, project: Project): string {
   const decisions = meeting.decisions.length ? meeting.decisions.map((d) => `- ${d.text}${d.owner ? ` _(owner: ${d.owner})_` : ''}`).join('\n') : '_None recorded._';
   const actions = meeting.actionItems.length
-    ? meeting.actionItems.map((a) => `- [${a.done ? 'x' : ' '}] ${a.task} — ${a.assignee || 'Unassigned'}${a.due ? `, due ${a.due}` : ''}`).join('\n')
+    ? meeting.actionItems.map((a) => `- [${a.done ? 'x' : ' '}] ${a.task}, ${a.assignee || 'Unassigned'}${a.due ? `, due ${a.due}` : ''}`).join('\n')
     : '_None recorded._';
   return `# ${meeting.title}
 
@@ -84,8 +84,17 @@ ${fns.length ? `**Impacted functionalities:** ${fns.join(', ')}\n\n` : ''}${(r.a
 }
 
 export function impactToMarkdown(project: Project, a: ImpactAssessment): string {
-  const list = (rows: Array<{ area: string; description: string; severity: string }>) =>
-    rows.length ? rows.map((r) => `- **${r.area}** (${r.severity}): ${r.description}`).join('\n') : '_None identified._';
+  const list = (rows: ImpactAssessment['functional']) =>
+    rows.length
+      ? rows.map((r) => [
+          `- **${r.area}** (${r.severity}): ${r.description}`,
+          r.impactedPart && `  - Impacted part: ${r.impactedPart}`,
+          r.currentState && `  - Current: ${r.currentState}`,
+          r.proposedChange && `  - Change: ${r.proposedChange}`,
+          r.rationale && `  - Why: ${r.rationale}`,
+          r.propagation && `  - Knock-on: ${r.propagation}`,
+        ].filter(Boolean).join('\n')).join('\n')
+      : '_None identified._';
   return `# Impact assessment: ${project.name}
 
 ## Summary
@@ -102,11 +111,11 @@ ${list(a.technical)}
 
 ## Risks
 
-${a.risks.length ? a.risks.map((r) => `- **${r.risk}** (${r.severity})${r.mitigation ? ` — mitigation: ${r.mitigation}` : ''}`).join('\n') : '_None identified._'}
+${a.risks.length ? a.risks.map((r) => `- **${r.risk}** (${r.severity})${r.mitigation ? `, mitigation: ${r.mitigation}` : ''}`).join('\n') : '_None identified._'}
 
 ## Gaps
 
-${a.gaps.length ? a.gaps.map((g) => `- **${g.gap}**${g.recommendation ? ` — ${g.recommendation}` : ''}`).join('\n') : '_None identified._'}
+${a.gaps.length ? a.gaps.map((g) => `- **${g.gap}**${g.recommendation ? `, ${g.recommendation}` : ''}`).join('\n') : '_None identified._'}
 `;
 }
 

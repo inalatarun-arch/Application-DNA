@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Lock, KeyRound, Loader2 } from 'lucide-react';
 import { useVault } from './useVault';
 import { unlock } from '../lib/vault';
+import { getProxy } from '@/services/apiKeyStore';
 import { btnPrimary, btnSecondary, input } from './ui';
 
 /** Shown above AI pages when the shared Gemini key is missing or locked. Renders nothing when ready. */
@@ -11,7 +12,8 @@ export function AiKeyBanner({ onOpenSettings }: { onOpenSettings: () => void }) 
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
 
-  if (vault.unlocked) return null;
+  // Pages already explain a missing key; the banner is only for a saved key that is locked.
+  if (vault.unlocked || !vault.hasVault || getProxy().url) return null;
 
   const doUnlock = async () => {
     setBusy(true);
@@ -27,7 +29,7 @@ export function AiKeyBanner({ onOpenSettings }: { onOpenSettings: () => void }) 
   };
 
   return (
-    <div className="mb-4 flex flex-wrap items-center gap-3 rounded border-2 border-[#111827] bg-white px-4 py-3 text-[13px]">
+    <div className="mb-4 flex flex-wrap items-center gap-3 rounded-lg border border-primary bg-surface-lowest px-4 py-3 text-body-md">
       {vault.hasVault ? <Lock size={16} /> : <KeyRound size={16} />}
       {!vault.hasVault ? (
         <>
@@ -62,7 +64,7 @@ export function AiKeyBanner({ onOpenSettings }: { onOpenSettings: () => void }) 
           <button className={btnSecondary} onClick={onOpenSettings}>
             AI Settings
           </button>
-          {err && <span className="w-full text-[12px] font-semibold">{err}</span>}
+          {err && <span className="w-full text-label-md font-semibold">{err}</span>}
         </>
       )}
     </div>

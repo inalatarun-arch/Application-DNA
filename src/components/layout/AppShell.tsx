@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
-import { Outlet, useLocation } from 'react-router-dom';
+import { Outlet, useLocation, useNavigate } from 'react-router-dom';
+import { AiKeyBanner } from '@/components/AiKeyBanner';
 import { useMediaQuery } from '@/hooks/useMediaQuery';
 import { usePersistentState } from '@/hooks/usePersistentState';
 import Sidebar from './Sidebar';
@@ -16,6 +17,7 @@ export default function AppShell() {
   const [searchOpen, setSearchOpen] = useState(false);
   const [copilotOpen, setCopilotOpen] = useState(false);
   const { pathname } = useLocation();
+  const navigate = useNavigate();
 
   // Tablet always shows the icon rail; desktop honours the saved preference.
   const rail = isTablet || collapsed;
@@ -50,6 +52,7 @@ export default function AppShell() {
         <Header isMobile={isMobile} onOpenMenu={() => setMobileOpen(true)} onOpenSearch={() => setSearchOpen(true)} />
         <main className="flex-1 overflow-y-auto">
           <div className="mx-auto w-full max-w-[1280px] p-4 md:p-8">
+            <AiKeyBanner onOpenSettings={() => navigate('/settings')} />
             <Outlet />
           </div>
         </main>

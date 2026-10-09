@@ -7,7 +7,7 @@ export interface GeminiModelOption {
 /** Google-maintained alias that follows the current Flash release. */
 export const DEFAULT_MODEL = 'gemini-flash-latest';
 
-export type AiFeature = 'transcript' | 'impact' | 'frd' | 'tdd' | 'testcases' | 'defects' | 'copilot' | 'application-ingestion' | 'screen-extraction' | 'requirement-import' | 'project-flow' | 'knowledge-flow';
+export type AiFeature = 'transcript' | 'impact' | 'frd' | 'tdd' | 'testcases' | 'defects' | 'copilot' | 'application-ingestion' | 'screen-extraction' | 'requirement-import' | 'project-flow' | 'knowledge-flow' | 'flow-edit' | 'document-revise' | 'extraction-revise' | 'user-stories';
 
 export const AI_FEATURES: Array<{ id: AiFeature; label: string; description: string }> = [
   { id: 'transcript', label: 'Transcript processing', description: 'Meeting notes and requirement extraction' },
@@ -22,6 +22,10 @@ export const AI_FEATURES: Array<{ id: AiFeature; label: string; description: str
   { id: 'requirement-import', label: 'Requirement import', description: 'Extract project requirements from uploaded files' },
   { id: 'project-flow', label: 'Project process flow', description: 'Generate future-state flows from requirements' },
   { id: 'knowledge-flow', label: 'Knowledge graph flow', description: 'Generate Mermaid flows from application evidence' },
+  { id: 'flow-edit', label: 'Flow edits', description: 'Apply text instructions to a process flow as small changes' },
+  { id: 'document-revise', label: 'Document revision', description: 'Revise sections of an FDD or TDD from reviewer comments' },
+  { id: 'extraction-revise', label: 'Extraction review', description: 'Adjust staged application knowledge from reviewer comments' },
+  { id: 'user-stories', label: 'User stories', description: 'Turn approved requirements into user stories' },
 ];
 
 export interface AiSettings {

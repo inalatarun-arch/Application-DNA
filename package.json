@@ -8,7 +8,9 @@
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "lint": "eslint src --max-warnings=200",
+    "check": "tsc --noEmit && vitest run"
   },
   "dependencies": {
     "@fontsource-variable/inter": "^5.1.1",
@@ -24,16 +26,24 @@
     "xlsx": "^0.18.5"
   },
   "devDependencies": {
+    "@eslint/js": "^9.17.0",
     "@types/d3-force": "^3.0.10",
     "@types/node": "^22.10.2",
     "@types/react": "^18.3.18",
     "@types/react-dom": "^18.3.5",
     "@vitejs/plugin-react": "^4.3.4",
     "autoprefixer": "^10.4.20",
+    "eslint": "^9.17.0",
+    "eslint-plugin-react-hooks": "^5.1.0",
+    "globals": "^15.14.0",
     "postcss": "^8.4.49",
     "tailwindcss": "^3.4.17",
     "typescript": "~5.7.2",
+    "typescript-eslint": "^8.18.2",
     "vite": "^6.0.7",
     "vitest": "^1.6.0"
+  },
+  "engines": {
+    "node": ">=20"
   }
 }

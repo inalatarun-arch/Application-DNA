@@ -1,6 +1,7 @@
 import * as mammoth from 'mammoth';
 import * as XLSX from 'xlsx';
 import type { GeminiContent } from '@/services/geminiService';
+import { fileWrap } from '@/prompts';
 
 const MAX_FILE_BYTES = 12 * 1024 * 1024;
 const TEXT_EXTENSIONS = new Set(['txt','md','csv','json','xml','yaml','yml','log','sql','graphql','js','ts','tsx','jsx','css','html','vtt','srt']);
@@ -84,7 +85,7 @@ export async function fileToGeminiContent(file: File): Promise<GeminiContent> {
     if (!text.trim()) throw new Error(`${file.name} contains no readable text.`);
     return {
       role: 'user',
-      parts: [{ text: `FILE: ${file.name}\nMIME: ${file.type || 'text/plain'}\nCONTENT:\n${text}` }],
+      parts: [{ text: fileWrap(file.name, file.type || 'text/plain', `FILE: ${file.name}\nMIME: ${file.type || 'text/plain'}\nCONTENT:\n${text}`) }],
     };
   }
 
@@ -92,7 +93,7 @@ export async function fileToGeminiContent(file: File): Promise<GeminiContent> {
     const text = await extractOfficeText(file, ext);
     return {
       role: 'user',
-      parts: [{ text: `FILE: ${file.name}\nEXTRACTED OFFICE DOCUMENT CONTENT:\n${text}\n\nExtract all application-relevant information from this content. Preserve sheet names, headings, labels and table relationships.` }],
+      parts: [{ text: fileWrap(file.name, ext, `FILE: ${file.name}\nEXTRACTED OFFICE DOCUMENT CONTENT (sheet names, headings and table layout preserved):\n${text}`) }],
     };
   }
 
@@ -106,7 +107,7 @@ export async function fileToGeminiContent(file: File): Promise<GeminiContent> {
   return {
     role: 'user',
     parts: [
-      { text: `FILE: ${file.name}\nMIME: ${mimeType}\nAnalyse this file as source material. Extract all application-relevant information you can identify.` },
+      { text: `<<<FILE ${file.name} (${mimeType}) attached below as binary FILE>>>` },
       { inlineData: { mimeType, data: toBase64(dataUrl) } },
     ],
   };

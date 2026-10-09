@@ -10,6 +10,8 @@ import { db } from '@/db/db';
 import type { Project } from '@/db/types';
 import { useGraphSource } from '@/hooks/useGraphSource';
 
+const model=(m:string)=>m||'Gemini';
+
 export default function RequirementImportModal({ open, project, onClose, onImported }: { open:boolean; project:Project; onClose:()=>void; onImported:()=>void }) {
  const apiKey=useApiKey(); const source=useGraphSource(); const [files,setFiles]=useState<File[]>([]); const [busy,setBusy]=useState(false); const [error,setError]=useState(''); const [notice,setNotice]=useState(''); const input=useRef<HTMLInputElement>(null);
  const run=async()=>{
@@ -18,16 +20,23 @@ export default function RequirementImportModal({ open, project, onClose, onImpor
    const current=await db.requirements.where('projectId').equals(project.id).toArray();
    const result=await extractProjectRequirements(project,current,source,await filesToGeminiParts(files));
    const fnByName=new Map(source.functionalities.map(f=>[f.name.trim().toLowerCase(),f.id]));
-   let added=0;
-   for(const req of result.data.requirements??[]){
-    if(!req.title?.trim())continue;
-    const ids=(req.functionalityNames??[]).map(n=>fnByName.get(n.trim().toLowerCase())).filter((x):x is string=>!!x);
-    const duplicate=current.some(r=>r.title.trim().toLowerCase()===req.title.trim().toLowerCase());
-    if(duplicate)continue;
-    await addRequirement(project.id,{title:req.title,description:req.description,kind:req.kind,acceptanceCriteria:req.acceptanceCriteria,priority:req.priority,functionalityIds:ids,source:files.map(f=>f.name).join(', ')});
-    added++;
+   const key=(t:string)=>t.trim().toLowerCase();
+   const known=new Map(current.map(r=>[key(r.title),r.id]));
+   const proposals=result.data.requirements;
+   let added=0,changed=0,skipped=0;
+   // Parents first, so a child proposed in the same file can point at a parent created a moment ago.
+   const ordered=[...proposals].sort((x,y)=>Number(!!x.parentTitle)-Number(!!y.parentTitle));
+   for(const req of ordered){
+    const ids=req.functionalityNames.map(n=>fnByName.get(key(n))).filter((x):x is string=>!!x);
+    if(known.has(key(req.title))){skipped++;continue;}
+    const quote=req.sourceQuote?`\n\nSource${req.sourceFile?` (${req.sourceFile})`:''}: "${req.sourceQuote}"`:'';
+    const isChange=req.operation==='changed'&&!!req.existingTitle;
+    const lead=isChange?`Proposed change to "${req.existingTitle}". `:'';
+    const created=await addRequirement(project.id,{title:req.title,description:`${lead}${req.description}${quote}`.trim(),kind:req.kind,acceptanceCriteria:req.acceptanceCriteria,priority:req.priority,functionalityIds:ids,source:req.sourceFile||files.map(f=>f.name).join(', '),parentId:req.parentTitle?known.get(key(req.parentTitle)):undefined});
+    known.set(key(req.title),created.id);
+    if(isChange)changed++;else added++;
    }
-   setNotice(`Gemini extracted ${result.data.requirements.length} requirements and added ${added} new draft requirements to the backlog.`);
+   setNotice(`${model(result.model)} found ${proposals.length} proposal${proposals.length===1?'':'s'}: ${added} new and ${changed} proposed change${changed===1?'':'s'} added as drafts${skipped?`, ${skipped} skipped because a requirement with that title already exists`:''}.${result.repaired?' The reply was cut off, so only the complete items were kept. Import again with fewer files if something is missing.':''}`);
    setFiles([]);onImported();
   }catch(err){if(!(isGeminiError(err)&&err.code==='ABORTED'))setError(describeError(err));}
   finally{setBusy(false);}

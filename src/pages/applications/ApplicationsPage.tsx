@@ -16,6 +16,7 @@ import { cn } from '@/lib/cn';
 import { formatDateTime } from '@/lib/format';
 import ApplicationsTabs from './ApplicationsTabs';
 import ApplicationFormModal from './ApplicationFormModal';
+import PageSkeleton from '@/components/ui/Skeleton';
 
 type View = 'grid' | 'table';
 
@@ -111,7 +112,7 @@ export default function ApplicationsPage() {
             </div>
             <select className="input w-auto" value={tier} onChange={(e) => setTier(e.target.value as 'all' | CriticalTier)} aria-label="Filter by critical tier">
               <option value="all">All tiers</option>
-              {CRITICAL_TIERS.map((t) => <option key={t.id} value={t.id}>{t.label} — {t.description}</option>)}
+              {CRITICAL_TIERS.map((t) => <option key={t.id} value={t.id}>{t.label}: {t.description}</option>)}
             </select>
             <select className="input w-auto" value={domain} onChange={(e) => setDomain(e.target.value)} aria-label="Filter by domain">
               <option value="all">All domains</option>
@@ -127,7 +128,7 @@ export default function ApplicationsPage() {
           </div>
 
           {loading ? (
-            <p className="text-body-md text-on-surface-variant">Loading…</p>
+            <PageSkeleton />
           ) : filtered.length === 0 ? (
             <EmptyState icon={Search} title="No applications match" description={hasFilters ? 'Try a different search or clear the filters.' : undefined}>
               <button type="button" className="btn btn-secondary" onClick={() => { setQuery(''); setTier('all'); setDomain('all'); }}>Clear filters</button>
@@ -186,10 +187,10 @@ export default function ApplicationsPage() {
                     return (
                       <tr key={app.id} className="hover:bg-surface-low">
                         <td className="px-4 py-3 font-semibold"><Link to={`/applications/${app.id}`} className="hover:underline">{app.name}</Link></td>
-                        <td className="px-4 py-3 text-on-surface-variant">{app.vendor || '—'}</td>
-                        <td className="px-4 py-3 text-on-surface-variant">{app.domain || '—'}</td>
+                        <td className="px-4 py-3 text-on-surface-variant">{app.vendor || '-'}</td>
+                        <td className="px-4 py-3 text-on-surface-variant">{app.domain || '-'}</td>
                         <td className="px-4 py-3"><TierBadge tier={app.criticalTier} /></td>
-                        <td className="px-4 py-3 text-on-surface-variant">{app.businessOwner || '—'}</td>
+                        <td className="px-4 py-3 text-on-surface-variant">{app.businessOwner || '-'}</td>
                         <td className="px-4 py-3 tabular-nums">{c.modules}</td>
                         <td className="px-4 py-3 tabular-nums">{c.screens}</td>
                         <td className="px-4 py-3 tabular-nums">{c.functionalities}</td>

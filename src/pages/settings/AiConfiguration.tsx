@@ -1,58 +1,24 @@
 import { useEffect, useState } from 'react';
-import { Eye, EyeOff, KeyRound, Loader2, RefreshCw, Trash2, Zap } from 'lucide-react';
+import { Loader2, RefreshCw } from 'lucide-react';
+import KeyVaultCard from '@/components/KeyVaultCard';
 import { AI_FEATURES, DEFAULT_MODEL } from '@/config/ai';
 import { useAiSettings } from '@/db/settings';
 import { useApiKey } from '@/hooks/useApiKey';
-import { clearApiKey, setApiKey } from '@/services/apiKeyStore';
-import { listAvailableModels, testConnection, type ConnectionTestResult, type GeminiModelInfo } from '@/services/geminiService';
-import { cn } from '@/lib/cn';
+import { listAvailableModels, type GeminiModelInfo } from '@/services/geminiService';
 
 export default function AiConfiguration() {
   const savedKey = useApiKey();
   const [ai, saveAi] = useAiSettings();
-  const [draft, setDraft] = useState(savedKey);
-  const [reveal, setReveal] = useState(false);
-  const [testing, setTesting] = useState(false);
-  const [result, setResult] = useState<ConnectionTestResult | null>(null);
-  const [savedFlash, setSavedFlash] = useState(false);
   const [models, setModels] = useState<GeminiModelInfo[]>([]);
   const [modelsLoading, setModelsLoading] = useState(false);
   const [modelsError, setModelsError] = useState<string | null>(null);
   const [modelsUpdatedAt, setModelsUpdatedAt] = useState<number | null>(null);
   const [fallbackDraft, setFallbackDraft] = useState('');
 
-  // Keep the field in sync if the key changes elsewhere (restore, other tab).
-  useEffect(() => setDraft(savedKey), [savedKey]);
   useEffect(() => setFallbackDraft(ai.fallbackModels.join(', ')), [ai.fallbackModels]);
 
-  const trimmed = draft.trim();
-  const dirty = trimmed !== savedKey;
-
-  const onSave = () => {
-    setApiKey(trimmed);
-    setResult(null);
-    setSavedFlash(true);
-    setTimeout(() => setSavedFlash(false), 2000);
-  };
-
-  const onClear = () => {
-    clearApiKey();
-    setDraft('');
-    setResult(null);
-  };
-
-  const onTest = async () => {
-    setTesting(true);
-    setResult(null);
-    try {
-      setResult(await testConnection({ apiKey: trimmed, model: ai.defaultModel }));
-    } finally {
-      setTesting(false);
-    }
-  };
-
-  const refreshModels = async (key = savedKey) => {
-    if (!key.trim()) {
+  const refreshModels = async () => {
+    if (!savedKey) {
       setModels([]);
       setModelsError(null);
       return;
@@ -60,7 +26,7 @@ export default function AiConfiguration() {
     setModelsLoading(true);
     setModelsError(null);
     try {
-      const next = await listAvailableModels(key);
+      const next = await listAvailableModels();
       setModels(next);
       setModelsUpdatedAt(Date.now());
       const available = new Set(next.map((m) => m.id));
@@ -79,7 +45,7 @@ export default function AiConfiguration() {
   };
 
   useEffect(() => {
-    if (savedKey) void refreshModels(savedKey);
+    if (savedKey) void refreshModels();
   }, [savedKey]);
 
   const setFeatureModel = (feature: (typeof AI_FEATURES)[number]['id'], model: string) => {
@@ -93,81 +59,10 @@ export default function AiConfiguration() {
     <section className="card" aria-labelledby="ai-config-title">
       <h2 id="ai-config-title" className="text-headline-md">AI configuration</h2>
       <p className="mt-1 text-body-md text-on-surface-variant">
-        Connect your own Google Gemini key. It stays in this browser and is sent only to Google&apos;s API.
+        Connect your Google Gemini key. It is encrypted in this browser and sent only to Google&apos;s API, or kept on a server you run.
       </p>
 
-      <div className="mt-6 max-w-xl">
-        <label htmlFor="gemini-key" className="field-label">Gemini API key</label>
-        <div className="flex gap-2">
-          <div className="relative flex-1">
-            <KeyRound size={16} aria-hidden className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-outline" />
-            <input
-              id="gemini-key"
-              name="gemini-api-key"
-              type={reveal ? 'text' : 'password'}
-              value={draft}
-              onChange={(e) => setDraft(e.target.value)}
-              placeholder="AIza…"
-              autoComplete="off"
-              spellCheck={false}
-              data-1p-ignore
-              className="input pl-9 pr-10 font-mono"
-            />
-            <button
-              type="button"
-              onClick={() => setReveal((r) => !r)}
-              aria-label={reveal ? 'Hide API key' : 'Show API key'}
-              aria-pressed={reveal}
-              className="icon-btn absolute right-0.5 top-1/2 h-8 w-8 -translate-y-1/2"
-            >
-              {reveal ? <EyeOff size={16} aria-hidden /> : <Eye size={16} aria-hidden />}
-            </button>
-          </div>
-        </div>
-        <p className="field-hint">
-          {savedFlash ? 'Saved in this browser.' : savedKey ? (dirty ? 'You have unsaved changes.' : 'Saved in this browser.') : 'Create a key in Google AI Studio, then paste it here.'}
-        </p>
-
-        <div className="mt-4 flex flex-wrap gap-2">
-          <button type="button" className="btn btn-primary" onClick={onSave} disabled={!dirty || !trimmed}>
-            Save key
-          </button>
-          <button type="button" className="btn btn-secondary" onClick={onTest} disabled={testing || !trimmed}>
-            {testing ? <Loader2 size={16} className="animate-spin" aria-hidden /> : <Zap size={16} aria-hidden />}
-            Test API connection
-          </button>
-          <button type="button" className="btn btn-secondary" onClick={onClear} disabled={!savedKey && !draft}>
-            <Trash2 size={16} aria-hidden />
-            Remove key
-          </button>
-        </div>
-
-        <div aria-live="polite" className="mt-4">
-          {result && (
-            <div
-              className={cn(
-                'rounded border p-3 text-body-md',
-                result.ok ? 'border-outline-variant bg-surface-low' : 'border-error bg-error-container text-error',
-              )}
-            >
-              {result.ok ? (
-                <>
-                  <p className="font-semibold">Connection successful</p>
-                  <p className="text-on-surface-variant">
-                    {result.model} responded in <span className="font-semibold text-on-surface">{result.latencyMs} ms</span>.
-                    {dirty && ' This key is not saved yet.'}
-                  </p>
-                </>
-              ) : (
-                <>
-                  <p className="font-semibold">Connection failed</p>
-                  <p>{result.message}</p>
-                </>
-              )}
-            </div>
-          )}
-        </div>
-      </div>
+      <KeyVaultCard />
 
       <hr className="my-6 border-outline-variant" />
 
@@ -175,7 +70,7 @@ export default function AiConfiguration() {
         <label htmlFor="default-model" className="field-label">Default model</label>
         <div className="flex gap-2">
           <select id="default-model" className="input flex-1" value={ai.defaultModel} onChange={(e) => void saveAi({ defaultModel: e.target.value })} disabled={!savedKey || modelsLoading}>
-            <option value={DEFAULT_MODEL}>Gemini Flash (latest — auto-updating)</option>
+            <option value={DEFAULT_MODEL}>Gemini Flash (latest, auto-updating)</option>
             {models.filter((m) => m.id !== DEFAULT_MODEL).map((m) => (
               <option key={m.id} value={m.id}>{m.displayName} ({m.id})</option>
             ))}
@@ -188,7 +83,7 @@ export default function AiConfiguration() {
         <p className="field-hint">
           {modelsLoading ? 'Loading models available to this API key from Google…' :
             modelsUpdatedAt ? `Live model list updated ${new Date(modelsUpdatedAt).toLocaleTimeString()}.` :
-            'Save an API key to load the models that key can actually use.'}
+            'Unlock or save an API key to load the models that key can actually use.'}
         </p>
         {modelsError && <p className="field-hint text-error">{modelsError}</p>}
       </div>

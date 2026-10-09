@@ -5,12 +5,13 @@ import PageHeader from '@/components/ui/PageHeader';
 import StatusBadge from '@/components/ui/StatusBadge';
 import EmptyState from '@/components/ui/EmptyState';
 import { db, newId, nowIso } from '@/db/db';
-import { generateJson, describeError } from '@/services/geminiService';
+import { describeError, isGeminiError } from '@/services/geminiService';
+import { analyzeDefect, generateTestCases } from '@/services/testAI';
+import { useApiKey } from '@/hooks/useApiKey';
 import type { Defect, Requirement, TechnicalComponent, TestCase, TestLevel, TestStatus } from '@/db/types';
 import { cn } from '@/lib/cn';
 
 type Tab = 'tests' | 'rtm' | 'defects';
-type GeneratedCase = { scenario: string; steps: string[]; expectedResult: string; priority: 'low'|'medium'|'high' };
 
 const LEVELS: TestLevel[] = ['unit','sit','regression','uat'];
 const STATUS_LABEL: Record<TestStatus,string> = {'not-run':'Not Run',passed:'Pass',failed:'Fail',blocked:'Blocked'};
@@ -24,6 +25,7 @@ export default function TestingPage() {
   const components = useLiveQuery(() => db.technicalComponents.toArray(), []);
   const [selectedRequirement,setSelectedRequirement] = useState('');
   const [level,setLevel] = useState<TestLevel>('sit');
+  const apiKey = useApiKey();
   const [generating,setGenerating] = useState(false);
   const [message,setMessage] = useState('');
   const [rtmFilter,setRtmFilter] = useState<'all'|'unmapped'|'failing'>('all');
@@ -52,18 +54,14 @@ export default function TestingPage() {
     if (!req) return;
     setGenerating(true); setMessage('');
     try {
-      const result = await generateJson<{testCases:GeneratedCase[]}>(`Generate a concise professional ${level.toUpperCase()} test suite for this requirement. Use the user story and acceptance criteria as the source of truth. Return JSON only with testCases. Each test case must have scenario, steps (array), expectedResult, priority (low|medium|high). Do not invent business rules.
-Requirement: ${req.title}
-Description: ${req.description}
-User Story: ${req.kind==='user-story' ? req.title : reqs.find(s=>s.id===req.parentId && s.kind==='user-story')?.title ?? 'Not explicitly linked'}
-Acceptance Criteria:
-${req.acceptanceCriteria.map((a,i)=>`${i+1}. ${a}`).join('\n')}`, {feature:'testcases', maxOutputTokens:6000});
+      const story = req.kind==='user-story' ? undefined : reqs.find(s=>s.id===req.parentId && s.kind==='user-story');
+      const result = await generateTestCases(req, story, level, (tests ?? []).filter(t=>t.requirementIds?.includes(req.id) && t.level===level));
       const projectId = req.projectId;
-      for (const item of result.data.testCases ?? []) {
-        await db.testCases.add({id:newId(),createdAt:nowIso(),updatedAt:nowIso(),projectId,requirementIds:[req.id],level,scenario:item.scenario,steps:item.steps,expectedResult:item.expectedResult,status:'not-run',priority:item.priority});
+      for (const item of result.cases) {
+        await db.testCases.add({id:newId(),createdAt:nowIso(),updatedAt:nowIso(),projectId,requirementIds:[req.id],level,scenario:item.scenario,steps:item.steps,expectedResult:item.expectedResult,status:'not-run',priority:item.priority,caseType:item.caseType,coversCriteria:item.coversCriteria});
       }
-      setMessage(`${result.data.testCases?.length ?? 0} ${level.toUpperCase()} test cases generated and saved.`);
-    } catch(e) { setMessage(describeError(e)); } finally { setGenerating(false); }
+      setMessage(result.cases.length ? `${result.cases.length} ${level.toUpperCase()} test cases saved.${result.tokens?.prompt!=null?` ${result.tokens.prompt} input and ${result.tokens.output ?? 0} output tokens.`:''}` : 'No new test cases. The model returned only scenarios you already have, or none that were usable.');
+    } catch(e) { if(!(isGeminiError(e)&&e.code==='ABORTED')) setMessage(describeError(e)); } finally { setGenerating(false); }
   };
 
   const updateTest = async (test:TestCase, patch:Partial<TestCase>) => db.testCases.update(test.id,{...patch,updatedAt:nowIso()});
@@ -86,7 +84,7 @@ ${req.acceptanceCriteria.map((a,i)=>`${i+1}. ${a}`).join('\n')}`, {feature:'test
           <div className="flex flex-wrap gap-2">
             <select className="input w-48" value={selectedRequirement} onChange={e=>setSelectedRequirement(e.target.value)}><option value="">Select requirement…</option>{reqs.map(r=><option key={r.id} value={r.id}>{r.title}</option>)}</select>
             <select className="input w-36" value={level} onChange={e=>setLevel(e.target.value as TestLevel)}>{LEVELS.map(x=><option key={x} value={x}>{x.toUpperCase()}</option>)}</select>
-            <button className="btn btn-primary" type="button" disabled={!selectedRequirement||generating} onClick={()=>void generateCases()}>{generating?<Loader2 size={16} className="animate-spin"/>:<Sparkles size={16}/>} Generate</button>
+            <button className="btn btn-primary" type="button" disabled={!selectedRequirement||generating||!apiKey} onClick={()=>void generateCases()}>{generating?<Loader2 size={16} className="animate-spin"/>:<Sparkles size={16}/>} Generate</button>
           </div>
         </div>
         {message && <p className="mt-4 rounded border border-outline-variant bg-surface-low p-3 text-body-md">{message}</p>}
@@ -94,7 +92,7 @@ ${req.acceptanceCriteria.map((a,i)=>`${i+1}. ${a}`).join('\n')}`, {feature:'test
       <div className="card overflow-hidden p-0">
         <div className="border-b border-outline-variant px-4 py-3"><h2 className="text-body-lg font-semibold">Test suite</h2></div>
         {(tests ?? []).length===0 ? <EmptyState icon={ClipboardList} title="No test cases yet" description="Select a requirement above and generate your first suite."/> :
-        <div className="overflow-x-auto"><table className="w-full text-left text-body-md"><thead><tr className="border-b border-outline-variant text-label-md text-on-surface-variant"><th className="px-4 py-3">Scenario</th><th>Suite</th><th>Priority</th><th>Status</th><th className="px-4 py-3">Expected / Actual</th></tr></thead><tbody>{(tests ?? []).map(t=><tr key={t.id} className="border-b border-outline-variant align-top"><td className="px-4 py-3"><div className="font-medium">{t.scenario}</div><ol className="mt-2 list-decimal space-y-1 pl-5 text-label-md text-on-surface-variant">{t.steps.map((s,i)=><li key={i}>{s}</li>)}</ol></td><td><StatusBadge status={t.level} label={t.level.toUpperCase()}/></td><td><StatusBadge status={t.priority} label={t.priority}/></td><td><select className="input w-28" value={t.status} onChange={e=>void updateTest(t,{status:e.target.value as TestStatus})}>{Object.entries(STATUS_LABEL).map(([v,l])=><option key={v} value={v}>{l}</option>)}</select></td><td className="max-w-md px-4 py-3"><div>{t.expectedResult}</div><textarea className="input mt-2 min-h-16 text-label-md" value={t.actualResult ?? ''} placeholder="Actual result…" onChange={e=>void updateTest(t,{actualResult:e.target.value})}/></td></tr>)}</tbody></table></div>}
+        <div className="overflow-x-auto"><table className="w-full text-left text-body-md"><thead><tr className="border-b border-outline-variant text-label-md text-on-surface-variant"><th className="px-4 py-3">Scenario</th><th>Suite</th><th>Priority</th><th>Status</th><th className="px-4 py-3">Expected / Actual</th></tr></thead><tbody>{(tests ?? []).map(t=><tr key={t.id} className="border-b border-outline-variant align-top"><td className="px-4 py-3"><div className="font-medium">{t.scenario}</div><ol className="mt-2 list-decimal space-y-1 pl-5 text-label-md text-on-surface-variant">{t.steps.map((s,i)=><li key={i}>{s}</li>)}</ol></td><td><StatusBadge status={t.level} label={t.level.toUpperCase()}/>{t.caseType&&<div className="mt-1 text-label-md text-on-surface-variant">{t.caseType}</div>}</td><td><StatusBadge status={t.priority} label={t.priority}/></td><td><select className="input w-28" value={t.status} onChange={e=>void updateTest(t,{status:e.target.value as TestStatus})}>{Object.entries(STATUS_LABEL).map(([v,l])=><option key={v} value={v}>{l}</option>)}</select></td><td className="max-w-md px-4 py-3"><div>{t.expectedResult}</div><textarea className="input mt-2 min-h-16 text-label-md" value={t.actualResult ?? ''} placeholder="Actual result…" onChange={e=>void updateTest(t,{actualResult:e.target.value})}/></td></tr>)}</tbody></table></div>}
       </div>
     </section>}
 
@@ -121,7 +119,8 @@ function DefectForm({draft,requirements,tests,components,projects,onCancel,onSav
 }
 
 function DefectRow({defect,tests,components}:{defect:Defect;tests:TestCase[];components:TechnicalComponent[]}) {
+ const apiKey=useApiKey();
  const [analysis,setAnalysis]=useState(defect.aiAnalysis ?? ''); const [loading,setLoading]=useState(false);
- const run=async()=>{setLoading(true);try{const linked=components.filter(c=>(defect.technicalComponentIds ?? []).includes(c.id));const tc=tests.find(t=>t.id===defect.testCaseId);const result=await generateJson<{rootCauses:string[];impactedModules:string[];recommendations:string[]}>(`Analyze this software defect using only the supplied evidence. Return JSON with rootCauses, impactedModules, recommendations arrays. Defect: ${defect.title}\nDescription: ${defect.description}\nLinked test: ${tc?.scenario ?? 'None'}\nTechnical components:\n${linked.map(c=>`${c.kind}: ${c.name} — ${c.description}\nDefinition: ${c.definition}`).join('\n')}`,{feature:'defects',maxOutputTokens:3500});const text=`Root causes:\n${result.data.rootCauses.join('\n• ')}\n\nImpacted modules:\n• ${result.data.impactedModules.join('\n• ')}\n\nRecommendations:\n• ${result.data.recommendations.join('\n• ')}`;setAnalysis(text);await db.defects.update(defect.id,{aiAnalysis:text,updatedAt:nowIso()});}catch(e){setAnalysis(describeError(e));}finally{setLoading(false);}};
- return <article className="p-4"><div className="flex flex-wrap items-start justify-between gap-3"><div><h3 className="font-semibold">{defect.title}</h3><p className="mt-1 text-body-md text-on-surface-variant">{defect.description}</p><div className="mt-2 flex flex-wrap gap-1.5"><StatusBadge status={defect.severity} label={defect.severity}/><StatusBadge status={defect.priority} label={defect.priority}/><StatusBadge status={defect.status} label={defect.status}/>{(defect.screenshots ?? []).length>0&&<span className="text-label-md text-on-surface-variant">Screenshot attached</span>}</div></div><button className="btn btn-secondary" onClick={()=>void run()} disabled={loading}>{loading?<Loader2 size={16} className="animate-spin"/>:<Sparkles size={16}/>} AI Root Cause Advisor</button></div>{analysis&&<pre className="mt-4 whitespace-pre-wrap rounded border border-outline-variant bg-surface-low p-3 text-label-md">{analysis}</pre>}</article>;
+ const run=async()=>{setLoading(true);try{const linked=components.filter(c=>(defect.technicalComponentIds ?? []).includes(c.id));const tc=tests.find(t=>t.id===defect.testCaseId);const text=await analyzeDefect(defect,tc,linked);setAnalysis(text);await db.defects.update(defect.id,{aiAnalysis:text,updatedAt:nowIso()});}catch(e){setAnalysis(describeError(e));}finally{setLoading(false);}};
+ return <article className="p-4"><div className="flex flex-wrap items-start justify-between gap-3"><div><h3 className="font-semibold">{defect.title}</h3><p className="mt-1 text-body-md text-on-surface-variant">{defect.description}</p><div className="mt-2 flex flex-wrap gap-1.5"><StatusBadge status={defect.severity} label={defect.severity}/><StatusBadge status={defect.priority} label={defect.priority}/><StatusBadge status={defect.status} label={defect.status}/>{(defect.screenshots ?? []).length>0&&<span className="text-label-md text-on-surface-variant">Screenshot attached</span>}</div></div><button className="btn btn-secondary" onClick={()=>void run()} disabled={loading||!apiKey}>{loading?<Loader2 size={16} className="animate-spin"/>:<Sparkles size={16}/>} AI Root Cause Advisor</button></div>{analysis&&<pre className="mt-4 whitespace-pre-wrap rounded border border-outline-variant bg-surface-low p-3 text-label-md">{analysis}</pre>}</article>;
 }

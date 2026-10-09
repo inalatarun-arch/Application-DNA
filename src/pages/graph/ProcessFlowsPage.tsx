@@ -20,6 +20,9 @@ import { generateKnowledgeFlow } from '@/services/knowledgeFlowAI';
 import { db } from '@/db/db';
 import { describeError, isGeminiError } from '@/services/geminiService';
 import MermaidDiagram from '@/components/flow/MermaidDiagram';
+import FlowActions from '@/components/flow/FlowActions';
+import { modelToMermaid } from '@/lib/mermaidFlow';
+import PageSkeleton from '@/components/ui/Skeleton';
 
 type Scope = 'functionality' | 'module';
 
@@ -34,7 +37,7 @@ export default function ProcessFlowsPage() {
     <>
       <PageHeader title="Knowledge graph" description="Step-by-step user and system flows for a functionality or a whole module, drawn from what you have documented." />
       <KnowledgeTabs />
-      {source === undefined ? <p className="text-body-md text-on-surface-variant">Loading…</p> : <FlowsView source={source} />}
+      {source === undefined ? <PageSkeleton /> : <FlowsView source={source} />}
     </>
   );
 }
@@ -82,13 +85,15 @@ function FlowsView({ source }: { source: GraphSource }) {
 
   const selectedFn = scope === 'functionality' ? functionalities.find((f) => f.id === idParam) ?? groups[0]?.items[0] : undefined;
   const selectedMod = scope === 'module' ? modules.find((m) => m.id === idParam) ?? modules[0] : undefined;
-  useEffect(() => { setAiFlow(''); setAiError(''); }, [selectedFn?.id, selectedMod?.id]);
+  const [override, setOverride] = useState<FlowModel | null>(null);
+  useEffect(() => { setAiFlow(''); setAiError(''); setOverride(null); }, [selectedFn?.id, selectedMod?.id]);
 
-  const model: FlowModel | null = useMemo(() => {
+  const built: FlowModel | null = useMemo(() => {
     if (selectedFn) return buildFunctionalityFlow(selectedFn, source);
     if (selectedMod) return buildModuleFlow(selectedMod, source);
     return null;
   }, [selectedFn, selectedMod, source]);
+  const model: FlowModel | null = override ?? built;
 
   const layout = useMemo(() => (model && model.nodes.length > 0 ? layoutFlow(model, view) : null), [model, view]);
   const mermaid = useMemo(() => (model ? flowToMermaid(model, view) : ''), [model, view]);
@@ -114,9 +119,15 @@ function FlowsView({ source }: { source: GraphSource }) {
       const screen = selectedFn.screenId ? source.screens.find(s => s.id === selectedFn.screenId) : undefined;
       const module = selectedFn.moduleId ? source.modules.find(m => m.id === selectedFn.moduleId) : undefined;
       const components = source.components.filter(c => (c.functionalityIds ?? []).includes(selectedFn.id) || (c.screenIds ?? []).includes(selectedFn.screenId ?? ''));
-      const result = await generateKnowledgeFlow(source.applications.find(a => a.id === selectedFn.applicationId)!, module, screen, selectedFn, components);
-      await db.functionalities.update(selectedFn.id, { processFlow: result.data.mermaid, updatedAt: new Date().toISOString() });
+      const app = source.applications.find(a => a.id === selectedFn.applicationId);
+      if (!app) throw new Error('The application for this functionality could not be found.');
+      const result = await generateKnowledgeFlow(app, module, screen, selectedFn, components);
       setAiFlow(result.data.mermaid);
+      if (result.data.issues.length) {
+        setAiError('The flow was drawn but still has syntax problems, so it was not saved to the functionality. Try again, or edit it with a sentence below.');
+      } else {
+        await db.functionalities.update(selectedFn.id, { processFlow: result.data.mermaid, updatedAt: new Date().toISOString() });
+      }
     } catch (err) {
       if (!(isGeminiError(err) && err.code === 'ABORTED')) setAiError(describeError(err));
     } finally { setAiBusy(false); }
@@ -232,6 +243,18 @@ function FlowsView({ source }: { source: GraphSource }) {
           </div>
 
           {exportError && <p role="alert" className="rounded border border-error bg-error-container p-3 text-body-md text-error">{exportError}</p>}
+
+          <FlowActions
+            model={model}
+            edited={override !== null}
+            onChange={setOverride}
+            onReset={() => setOverride(null)}
+            saveLabel="Save to functionality"
+            onSave={scope === 'functionality' && selectedFn ? async () => {
+              await db.functionalities.update(selectedFn.id, { processFlow: modelToMermaid(model), updatedAt: new Date().toISOString() });
+              setOverride(null);
+            } : undefined}
+          />
 
           <div ref={frame} className="overflow-auto rounded border border-outline-variant bg-surface-lowest" style={{ maxHeight: '70dvh' }}>
             <FlowDiagram layout={layout} view={view} palette={paletteFor(theme)} title={title} idPrefix="eih-view" scale={zoom} onNodeClick={(n) => n.to && navigate(n.to)} />

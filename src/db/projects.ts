@@ -140,17 +140,19 @@ export async function deleteMeeting(id: string): Promise<void> {
 
 // ------------------------------------------------------------------ backlog
 
-export async function addRequirement(projectId: string, fields: { title: string; description?: string; kind?: RequirementKind; acceptanceCriteria?: string[]; priority?: 'low'|'medium'|'high'; functionalityIds?: string[]; source?: string }): Promise<Requirement> {
+export async function addRequirement(projectId: string, fields: { title: string; description?: string; kind?: RequirementKind; acceptanceCriteria?: string[]; priority?: 'low'|'medium'|'high'; functionalityIds?: string[]; source?: string; parentId?: string }): Promise<Requirement> {
   const requirement: Requirement = {
     ...stamp(),
     projectId,
     kind: fields.kind ?? 'functional',
     title: fields.title.trim(),
     description: (fields.description ?? '').trim(),
-    acceptanceCriteria: [],
+    acceptanceCriteria: (fields.acceptanceCriteria ?? []).map((x) => x.trim()).filter(Boolean),
     status: 'draft',
-    functionalityIds: [],
-    priority: 'medium',
+    functionalityIds: [...new Set(fields.functionalityIds ?? [])],
+    priority: fields.priority ?? 'medium',
+    ...(fields.source ? { source: fields.source } : {}),
+    ...(fields.parentId ? { parentId: fields.parentId } : {}),
   };
   await db.requirements.add(requirement);
   return requirement;

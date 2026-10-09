@@ -3,37 +3,41 @@
 @tailwind utilities;
 
 @layer base {
-  /* Light: "Structural Blueprint" grayscale. Values are space-separated RGB channels. */
+  /* One accent (deep teal) over a cool, faintly green-tinted neutral. Values are space-separated RGB channels. */
   :root {
-    --surface: 248 249 251;
+    --surface: 246 248 248;
     --surface-lowest: 255 255 255;
-    --surface-low: 243 244 246;
-    --surface-container: 237 238 240;
-    --on-surface: 25 28 30;
-    --on-surface-variant: 69 70 76;
-    --outline: 118 119 125;
-    --outline-variant: 198 198 205;
-    --primary: 17 24 39;
+    --surface-low: 240 243 243;
+    --surface-container: 231 236 236;
+    --on-surface: 20 28 28;
+    --on-surface-variant: 66 79 79;
+    --outline: 110 124 124;
+    --outline-variant: 203 212 212;
+    --primary: 15 118 110;
     --on-primary: 255 255 255;
     --error: 186 26 26;
     --error-container: 255 218 214;
+    /* Shadows are tinted with the surface hue instead of pure black. */
+    --shadow: 14 58 54;
+    --shadow-alpha: 0.08;
     color-scheme: light;
   }
 
-  /* Dark: slate counterpart with the same tonal-layer logic (floor < sidebar < card). */
   .dark {
-    --surface: 11 17 32;
-    --surface-lowest: 19 28 49;
-    --surface-low: 15 23 42;
-    --surface-container: 30 41 59;
-    --on-surface: 226 232 240;
-    --on-surface-variant: 148 163 184;
-    --outline: 100 116 139;
-    --outline-variant: 51 65 85;
-    --primary: 241 245 249;
-    --on-primary: 0 0 0;
+    --surface: 9 15 15;
+    --surface-lowest: 17 25 25;
+    --surface-low: 13 20 20;
+    --surface-container: 27 38 38;
+    --on-surface: 226 237 237;
+    --on-surface-variant: 148 168 168;
+    --outline: 100 120 120;
+    --outline-variant: 44 60 60;
+    --primary: 45 212 191;
+    --on-primary: 4 40 38;
     --error: 248 113 113;
     --error-container: 69 20 28;
+    --shadow: 0 0 0;
+    --shadow-alpha: 0.45;
     color-scheme: dark;
   }
 
@@ -61,8 +65,9 @@
 }
 
 @layer components {
+  /* Shape rule: controls (buttons, inputs, chips) use `rounded` (6px); surfaces (cards, panels, modals) use `rounded-lg` (10px). */
   .btn {
-    @apply inline-flex items-center justify-center gap-2 rounded border px-4 py-2 text-body-md font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50;
+    @apply inline-flex items-center justify-center gap-2 rounded border px-4 py-2 text-body-md font-medium transition duration-150 ease-out active:translate-y-px active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50 disabled:active:translate-y-0 disabled:active:scale-100;
   }
   .btn-primary {
     @apply border-primary bg-primary text-on-primary hover:opacity-90;
@@ -71,18 +76,23 @@
     @apply border-outline-variant bg-surface-lowest text-on-surface hover:bg-surface-container;
   }
   .icon-btn {
-    @apply inline-flex h-9 w-9 items-center justify-center rounded text-on-surface-variant transition-colors hover:bg-surface-container hover:text-on-surface;
+    @apply inline-flex h-9 w-9 items-center justify-center rounded text-on-surface-variant transition duration-150 hover:bg-surface-container hover:text-on-surface active:scale-95;
   }
   .input {
-    @apply w-full rounded border border-outline-variant bg-surface-lowest p-2 text-body-md text-on-surface placeholder:text-outline focus-visible:border-primary focus-visible:outline-none disabled:opacity-50;
+    @apply w-full rounded border border-outline-variant bg-surface-lowest p-2 text-body-md text-on-surface transition-colors placeholder:text-outline focus-visible:border-primary focus-visible:outline-none disabled:opacity-50;
   }
   .card {
-    @apply rounded border border-outline-variant bg-surface-lowest p-6;
+    @apply rounded-lg border border-outline-variant bg-surface-lowest p-6;
+    box-shadow: 0 1px 2px rgb(var(--shadow) / var(--shadow-alpha)), 0 8px 24px -12px rgb(var(--shadow) / var(--shadow-alpha));
   }
   .field-label {
     @apply mb-1 block text-label-md text-on-surface;
   }
   .field-hint {
     @apply mt-1 text-label-md font-normal text-on-surface-variant;
+  }
+  /* Loading placeholder shaped like the content it stands in for. */
+  .skeleton {
+    @apply animate-pulse rounded bg-surface-container;
   }
 }

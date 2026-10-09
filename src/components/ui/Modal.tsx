@@ -42,12 +42,12 @@ export default function Modal({ open, title, onClose, children, footer, size = '
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/50 p-4 md:pt-[8vh]"
+      className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-on-surface/40 backdrop-blur-[2px] p-4 md:pt-[8vh]"
       onMouseDown={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
     >
-      <div role="dialog" aria-modal="true" aria-labelledby={titleId} className={cn('w-full rounded border-2 border-primary bg-surface-lowest', SIZES[size])}>
+      <div role="dialog" aria-modal="true" aria-labelledby={titleId} className={cn('w-full rounded-lg border border-outline-variant bg-surface-lowest shadow-pop', SIZES[size])}>
         <div className="flex items-center justify-between gap-4 border-b border-outline-variant px-6 py-4">
           <h2 id={titleId} className="text-headline-md">{title}</h2>
           <button type="button" className="icon-btn -mr-2" onClick={onClose} aria-label="Close dialog">

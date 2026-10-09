@@ -1,0 +1,30 @@
+name: Update lockfile
+
+# Run this once from the Actions tab (Run workflow). It creates or refreshes package-lock.json so later installs
+# are exact. It changes only package-lock.json.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  lock:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: npm install --package-lock-only --ignore-scripts
+      - name: Commit the lockfile
+        run: |
+          if git diff --quiet -- package-lock.json && [ -f package-lock.json ] && git ls-files --error-unmatch package-lock.json >/dev/null 2>&1; then
+            echo "Lockfile already up to date."
+          else
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add package-lock.json
+            git commit -m "Update package-lock.json"
+            git push
+          fi

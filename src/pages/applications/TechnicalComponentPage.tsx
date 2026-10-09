@@ -16,12 +16,13 @@ import EmptyState from '@/components/ui/EmptyState';
 import ColumnListEditor from '@/components/ui/ColumnListEditor';
 import RelatedPicker from '@/components/ui/RelatedPicker';
 import Chip from '@/components/ui/Chip';
+import PageSkeleton from '@/components/ui/Skeleton';
 
 export default function TechnicalComponentPage() {
   const { appId = '', componentId = '' } = useParams();
   const component = useLiveQuery(() => db.technicalComponents.get(componentId).then((c) => c ?? null), [componentId]);
 
-  if (component === undefined) return <p className="text-body-md text-on-surface-variant">Loading…</p>;
+  if (component === undefined) return <PageSkeleton />;
   if (component === null) {
     return (
       <EmptyState icon={Boxes} title="Component not found" description="It may have been deleted.">
@@ -190,7 +191,7 @@ function ComponentEditor({ component }: { component: TechnicalComponent }) {
 
       <Section title="Where this is used" description="Everything that relies on this component, directly or through components that depend on it.">
         {!usage ? (
-          <p className="text-body-md text-on-surface-variant">Loading…</p>
+          <PageSkeleton />
         ) : usage.screens.length === 0 && usage.functionalities.length === 0 ? (
           <p className="rounded border border-dashed border-outline-variant px-3 py-4 text-body-md text-on-surface-variant">
             Nothing relies on this component yet. Link screens or functionalities above, or tag it from their pages.

@@ -223,6 +223,10 @@ export interface TestCase extends BaseEntity {
   actualResult?: string;
   status: TestStatus;
   priority: 'low' | 'medium' | 'high';
+  /** Set for AI-generated cases. */
+  caseType?: 'positive' | 'negative' | 'boundary';
+  /** 1-based numbers of the acceptance criteria this case covers. */
+  coversCriteria?: number[];
 }
 
 export interface Defect extends BaseEntity {

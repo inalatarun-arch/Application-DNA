@@ -6,6 +6,7 @@ import { linkComponent, unlinkComponent, type LinkTarget } from '@/db/catalog';
 import type { TechnicalComponent } from '@/db/types';
 import { useTechnicalGraph } from '@/hooks/useTechnicalGraph';
 import { dependencyClosure } from '@/lib/techUsage';
+import PageSkeleton from '@/components/ui/Skeleton';
 
 interface Props {
   target: LinkTarget;
@@ -43,7 +44,7 @@ export default function LinkedComponentsPanel({ target, targetId, applicationId 
   const [scope, setScope] = useState<'app' | 'all'>('app');
   const [layer, setLayer] = useState<'all' | Layer>('all');
 
-  if (!graph) return <p className="text-body-md text-on-surface-variant">Loading…</p>;
+  if (!graph) return <PageSkeleton />;
 
   const appName = new Map(graph.applications.map((a) => [a.id, a.name]));
   const labelFor = (c: TechnicalComponent) => (c.applicationId === applicationId ? undefined : appName.get(c.applicationId));
@@ -86,7 +87,7 @@ export default function LinkedComponentsPanel({ target, targetId, applicationId 
       </div>
 
       {picking && (
-        <div className="rounded border-2 border-primary p-4">
+        <div className="rounded-lg border border-primary p-4">
           <div className="mb-3 flex flex-wrap gap-2">
             <div className="relative min-w-[200px] flex-1">
               <Search size={14} aria-hidden className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-outline" />

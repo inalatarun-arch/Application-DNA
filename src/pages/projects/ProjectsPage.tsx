@@ -11,6 +11,7 @@ import StatusBadge from '@/components/ui/StatusBadge';
 import Chip from '@/components/ui/Chip';
 import { formatDateTime } from '@/lib/format';
 import ProjectFormModal from './ProjectFormModal';
+import PageSkeleton from '@/components/ui/Skeleton';
 
 function tally(keys: unknown[]): Map<string, number> {
   const m = new Map<string, number>();
@@ -119,7 +120,7 @@ export default function ProjectsPage() {
           </div>
 
           {loading ? (
-            <p className="text-body-md text-on-surface-variant">Loading…</p>
+            <PageSkeleton />
           ) : filtered.length === 0 ? (
             <EmptyState icon={Search} title="No projects match" description="Try a different search or status." />
           ) : (

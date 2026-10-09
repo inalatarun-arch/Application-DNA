@@ -17,6 +17,7 @@ import ExtractedRequirementsTab from './ExtractedRequirementsTab';
 import ImpactTab from './ImpactTab';
 import DeliverablesTab from './DeliverablesTab';
 import ProjectFlowTab from './ProjectFlowTab';
+import PageSkeleton from '@/components/ui/Skeleton';
 
 const TAB_IDS = ['overview', 'notes', 'requirements', 'impact', 'flow', 'deliverables'] as const;
 type TabId = (typeof TAB_IDS)[number];
@@ -25,7 +26,7 @@ export default function ProjectWorkspace() {
   const { projectId = '' } = useParams();
   const project = useLiveQuery(() => db.projects.get(projectId).then((p) => p ?? null), [projectId]);
 
-  if (project === undefined) return <p className="text-body-md text-on-surface-variant">Loading…</p>;
+  if (project === undefined) return <PageSkeleton />;
   if (project === null) {
     return (
       <EmptyState icon={FolderKanban} title="Project not found" description="It may have been deleted, or you opened a link from a different browser.">

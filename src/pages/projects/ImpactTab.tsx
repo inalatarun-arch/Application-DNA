@@ -13,7 +13,10 @@ import StatusBadge from '@/components/ui/StatusBadge';
 import { fileBase, impactToMarkdown, saveText } from '@/lib/exporters';
 import { computeGaps, computeScope, groupByLayer } from '@/lib/projectScope';
 import { describeError, isGeminiError } from '@/services/geminiService';
-import { assessImpact, type ImpactAssessment } from '@/services/impactAI';
+import { assessImpact, impactDigest, type ImpactAssessment } from '@/services/impactAI';
+import { DIGEST_LABEL, type DigestLevel } from '@/lib/repoDigest';
+import { usePersistentState } from '@/hooks/usePersistentState';
+import PageSkeleton from '@/components/ui/Skeleton';
 
 const MAX_LISTED = 40;
 
@@ -22,8 +25,8 @@ function parseAssessment(content: string): ImpactAssessment | null {
     const v = JSON.parse(content) as Partial<ImpactAssessment>;
     return {
       summary: typeof v.summary === 'string' ? v.summary : '',
-      functional: Array.isArray(v.functional) ? v.functional.map((x) => ({ ...x, impactedPart: typeof x.impactedPart === 'string' ? x.impactedPart : '', currentState: typeof x.currentState === 'string' ? x.currentState : '', proposedChange: typeof x.proposedChange === 'string' ? x.proposedChange : '', rationale: typeof x.rationale === 'string' ? x.rationale : '' })) : [],
-      technical: Array.isArray(v.technical) ? v.technical.map((x) => ({ ...x, impactedPart: typeof x.impactedPart === 'string' ? x.impactedPart : '', currentState: typeof x.currentState === 'string' ? x.currentState : '', proposedChange: typeof x.proposedChange === 'string' ? x.proposedChange : '', rationale: typeof x.rationale === 'string' ? x.rationale : '' })) : [],
+      functional: Array.isArray(v.functional) ? v.functional.map((x) => ({ ...x, impactedPart: typeof x.impactedPart === 'string' ? x.impactedPart : '', currentState: typeof x.currentState === 'string' ? x.currentState : '', proposedChange: typeof x.proposedChange === 'string' ? x.proposedChange : '', rationale: typeof x.rationale === 'string' ? x.rationale : '', propagation: typeof (x as { propagation?: unknown }).propagation === 'string' ? (x as { propagation: string }).propagation : '' })) : [],
+      technical: Array.isArray(v.technical) ? v.technical.map((x) => ({ ...x, impactedPart: typeof x.impactedPart === 'string' ? x.impactedPart : '', currentState: typeof x.currentState === 'string' ? x.currentState : '', proposedChange: typeof x.proposedChange === 'string' ? x.proposedChange : '', rationale: typeof x.rationale === 'string' ? x.rationale : '', propagation: typeof (x as { propagation?: unknown }).propagation === 'string' ? (x as { propagation: string }).propagation : '' })) : [],
       risks: Array.isArray(v.risks) ? v.risks : [],
       gaps: Array.isArray(v.gaps) ? v.gaps : [],
     };
@@ -43,6 +46,8 @@ export default function ImpactTab({ project }: { project: Project }) {
 
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const [runInfo, setRunInfo] = useState('');
+  const [level, setLevel] = usePersistentState<DigestLevel>('eih.impact.level', 'standard');
   const abort = useRef<AbortController | null>(null);
 
   const scope = useMemo(() => (source && requirements ? computeScope(project, source, requirements) : null), [source, requirements, project]);
@@ -60,14 +65,20 @@ export default function ImpactTab({ project }: { project: Project }) {
   const screenName = useMemo(() => new Map((source?.screens ?? []).map((s) => [s.id, s.name])), [source]);
   const appName = useMemo(() => new Map((source?.applications ?? []).map((a) => [a.id, a.name])), [source]);
 
+  const preview = useMemo(() => (source && scope && requirements ? impactDigest(requirements, scope, source, project, level) : null), [source, scope, requirements, project, level]);
+
   const generate = async () => {
     if (!source || !scope || !requirements) return;
     setBusy(true);
     setError('');
+    setRunInfo('');
     const controller = new AbortController();
     abort.current = controller;
     try {
-      const { assessment: result, model: used } = await assessImpact(project, requirements, scope, source, controller.signal);
+      const run = await assessImpact(project, requirements, scope, source, level, controller.signal);
+      const result = run.assessment;
+      const used = run.model;
+      setRunInfo(`${run.tokens?.prompt != null ? `${run.tokens.prompt} input and ${run.tokens.output ?? 0} output tokens. ` : ''}Sent ${run.digest.shown.functionalities} of ${run.digest.total.functionalities} functionalities, ${run.digest.shown.screens} of ${run.digest.total.screens} screens and ${run.digest.shown.components} of ${run.digest.total.components} components.${run.truncated ? ' The reply was cut off, so only complete items were kept. Try Lean detail or fewer requirements.' : ''}`);
       const t = nowIso();
       const version = (latest?.version ?? 0) + 1;
       await db.artifacts.add({
@@ -91,7 +102,7 @@ export default function ImpactTab({ project }: { project: Project }) {
     }
   };
 
-  if (!scope) return <p className="text-body-md text-on-surface-variant">Loading…</p>;
+  if (!scope) return <PageSkeleton />;
 
   const componentGroups = groupByLayer([
     ...scope.directComponents.map((component) => ({ component, via: [] as string[] })),
@@ -162,7 +173,7 @@ export default function ImpactTab({ project }: { project: Project }) {
                       <td className="px-3 py-2 font-medium">
                         <Link to={`/applications/${f.applicationId}/screens/${f.screenId ?? ''}?tab=functionalities&open=${f.id}`} className="hover:underline">{f.name}</Link>
                       </td>
-                      <td className="px-3 py-2 text-on-surface-variant">{f.screenId ? screenName.get(f.screenId) : '—'}</td>
+                      <td className="px-3 py-2 text-on-surface-variant">{f.screenId ? screenName.get(f.screenId) : '-'}</td>
                       <td className="px-3 py-2 tabular-nums">{reqCount.get(f.id) ?? 0}</td>
                       <td className="px-3 py-2 tabular-nums">{scope.directComponents.filter((c) => (c.functionalityIds ?? []).includes(f.id)).length}</td>
                     </tr>
@@ -242,6 +253,18 @@ export default function ImpactTab({ project }: { project: Project }) {
             </>
           )}
         </div>
+        {apiKey && !busy && (
+          <div className="flex flex-wrap items-end gap-3">
+            <div>
+              <label htmlFor="impact-level" className="field-label">Detail sent to Gemini</label>
+              <select id="impact-level" className="input w-auto" value={level} onChange={(e) => setLevel(e.target.value as DigestLevel)}>
+                {(Object.keys(DIGEST_LABEL) as DigestLevel[]).map((l) => <option key={l} value={l}>{DIGEST_LABEL[l]}</option>)}
+              </select>
+            </div>
+            {preview && <p className="pb-2 text-body-md text-on-surface-variant">About {preview.tokens.toLocaleString()} input tokens. Most relevant items are sent first.</p>}
+          </div>
+        )}
+        {runInfo && <p role="status" className="text-label-md text-on-surface-variant">{runInfo}</p>}
         {error && <p role="alert" className="rounded border border-error bg-error-container p-3 text-body-md text-error">{error}</p>}
 
         {latest && assessment && (
@@ -264,7 +287,7 @@ export default function ImpactTab({ project }: { project: Project }) {
                     {rows.map((r, i) => (
                       <li key={i} className="flex items-start gap-3 px-3 py-2">
                         <span className="mt-0.5 shrink-0"><StatusBadge status={r.severity} label={r.severity === 'high' ? 'High' : r.severity === 'low' ? 'Low' : 'Medium'} /></span>
-                        <span className="min-w-0"><span className="block font-medium">{r.area}</span><span className="block text-body-md text-on-surface-variant">{r.description}</span>{r.impactedPart && <span className="mt-1 block text-body-md"><strong>Impacted part:</strong> {r.impactedPart}</span>}{r.currentState && <span className="block text-body-md text-on-surface-variant"><strong>Current:</strong> {r.currentState}</span>}{r.proposedChange && <span className="block text-body-md text-on-surface-variant"><strong>Change:</strong> {r.proposedChange}</span>}{r.rationale && <span className="block text-body-md text-on-surface-variant"><strong>Why:</strong> {r.rationale}</span>}</span>
+                        <span className="min-w-0"><span className="block font-medium">{r.area}</span><span className="block text-body-md text-on-surface-variant">{r.description}</span>{r.impactedPart && <span className="mt-1 block text-body-md"><strong>Impacted part:</strong> {r.impactedPart}</span>}{r.currentState && <span className="block text-body-md text-on-surface-variant"><strong>Current:</strong> {r.currentState}</span>}{r.proposedChange && <span className="block text-body-md text-on-surface-variant"><strong>Change:</strong> {r.proposedChange}</span>}{r.rationale && <span className="block text-body-md text-on-surface-variant"><strong>Why:</strong> {r.rationale}</span>}{r.propagation && <span className="block text-body-md text-on-surface-variant"><strong>Knock-on:</strong> {r.propagation}</span>}</span>
                       </li>
                     ))}
                   </ul>

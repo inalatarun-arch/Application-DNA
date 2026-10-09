@@ -46,7 +46,7 @@ export default function Sidebar({ rail, isMobile, mobileOpen, canToggleRail, onC
 
   return (
     <>
-      {isMobile && mobileOpen && <div className="fixed inset-0 z-30 bg-black/50" onClick={onCloseMobile} aria-hidden />}
+      {isMobile && mobileOpen && <div className="fixed inset-0 z-30 bg-on-surface/40 backdrop-blur-[2px]" onClick={onCloseMobile} aria-hidden />}
       <aside
         id="app-sidebar"
         aria-label="Primary"

@@ -10,6 +10,7 @@ import QuickCreateModal from '@/components/ui/QuickCreateModal';
 import StatusBadge from '@/components/ui/StatusBadge';
 import { cn } from '@/lib/cn';
 import MeetingEditor from './MeetingEditor';
+import PageSkeleton from '@/components/ui/Skeleton';
 
 interface Props {
   project: Project;
@@ -75,7 +76,7 @@ export default function MeetingNotesTab({ project, onReview }: Props) {
         {selected ? (
           <MeetingEditor key={selected.id} meeting={selected} project={project} onReview={onReview} onDeleted={() => select(null)} />
         ) : (
-          <p className="text-body-md text-on-surface-variant">Loading…</p>
+          <PageSkeleton />
         )}
       </div>
       <NewMeeting open={creating} projectId={project.id} onClose={() => setCreating(false)} onCreated={select} />

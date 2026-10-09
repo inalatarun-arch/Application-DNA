@@ -47,7 +47,7 @@ export default function RelatedPicker({ label, options, value, onChange, placeho
       >
         <option value="">{available.length === 0 ? 'Nothing else to add' : placeholder}</option>
         {available.map((o) => (
-          <option key={o.id} value={o.id}>{o.sublabel ? `${o.label} — ${o.sublabel}` : o.label}</option>
+          <option key={o.id} value={o.id}>{o.sublabel ? `${o.label}, ${o.sublabel}` : o.label}</option>
         ))}
       </select>
     </div>

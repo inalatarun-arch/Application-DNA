@@ -4,7 +4,7 @@ import { renderMarkdown } from '../lib/markdown';
 
 export const PREVIEW_CSS = `
 .md-body{font-family:Inter,system-ui,sans-serif;color:#111827;font-size:14px;line-height:22px}
-.md-body h1{font-size:26px;line-height:34px;font-weight:600;letter-spacing:-0.02em;margin:0 0 16px;padding-bottom:8px;border-bottom:2px solid #111827}
+.md-body h1{font-size:26px;line-height:34px;font-weight:600;letter-spacing:-0.02em;margin:0 0 16px;padding-bottom:8px;border-bottom:2px solid #0f766e}
 .md-body h2{font-size:19px;line-height:26px;font-weight:600;margin:28px 0 10px;padding-bottom:4px;border-bottom:1px solid #D1D5DB}
 .md-body h3{font-size:15px;font-weight:600;margin:20px 0 6px}
 .md-body h4,.md-body h5,.md-body h6{font-size:14px;font-weight:600;margin:14px 0 4px}
@@ -17,21 +17,22 @@ export const PREVIEW_CSS = `
 .md-body pre code{background:none;border:0;padding:0}
 .md-body blockquote{border-left:3px solid #9CA3AF;margin:0 0 10px;padding:2px 12px;color:#45464c;background:#F9FAFB}
 .md-body hr{border:0;border-top:1px solid #D1D5DB;margin:18px 0}
-.md-body a{color:#111827;text-decoration:underline}
+.md-body a{color:#0f766e;text-decoration:underline}
 .md-body .md-table{overflow-x:auto;margin:0 0 14px}
 .md-body table{border-collapse:collapse;width:100%;font-size:13px}
 .md-body th{background:#F3F4F6;border:1px solid #D1D5DB;padding:6px 8px;text-align:left;font-weight:600}
 .md-body td{border:1px solid #D1D5DB;padding:6px 8px;vertical-align:top}
 .md-body .md-diagram{margin:0 0 14px;padding:12px;border:1px solid #D1D5DB;border-radius:4px;overflow-x:auto;text-align:center;background:#fff}
 .md-body .md-diagram svg{max-width:100%;height:auto}
+.md-body .md-wire{display:block;margin:0 0 12px;padding:28px 12px;border:1px dashed #9CA3AF;border-radius:4px;text-align:center;color:#5B6770;font-style:italic}
 `;
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 let mermaidPromise: Promise<any> | null = null;
 function loadMermaid(): Promise<any> {
   if (!mermaidPromise) {
-    const url = 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs';
-    mermaidPromise = import(/* @vite-ignore */ url).then((m: any) => {
+    // Bundled with the app, so it works offline and behind firewalls that block CDNs.
+    mermaidPromise = import('mermaid').then((m: any) => {
       const mermaid = m.default;
       mermaid.initialize({ startOnLoad: false, securityLevel: 'strict', theme: 'neutral', fontFamily: 'Inter, sans-serif' });
       return mermaid;

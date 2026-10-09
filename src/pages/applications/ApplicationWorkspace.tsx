@@ -5,8 +5,9 @@ import { db } from '@/db/db';
 import EmptyState from '@/components/ui/EmptyState';
 import StructureTree from './StructureTree';
 import type { AppContext } from './appContext';
+import PageSkeleton from '@/components/ui/Skeleton';
 
-/** Layout for /applications/:appId — structure tree on the left, the selected page on the right. */
+/** Layout for /applications/:appId, structure tree on the left, the selected page on the right. */
 export default function ApplicationWorkspace() {
   const { appId = '' } = useParams();
   const screenMatch = useMatch('/applications/:appId/screens/:screenId');
@@ -21,7 +22,7 @@ export default function ApplicationWorkspace() {
   const component = useLiveQuery(() => (componentId ? db.technicalComponents.get(componentId) : undefined), [componentId]);
 
   if (app === undefined || modules === undefined || screens === undefined) {
-    return <p className="text-body-md text-on-surface-variant">Loading…</p>;
+    return <PageSkeleton />;
   }
   if (app === null) {
     return (

@@ -147,7 +147,7 @@ export default function NodeDrawer({ node, source, nodesById, edges, onSelect, o
     <aside
       role="dialog"
       aria-label={`${node.label} details`}
-      className="absolute inset-x-0 bottom-0 z-10 flex max-h-[72%] flex-col rounded-t border-2 border-primary bg-surface-lowest sm:inset-y-0 sm:left-auto sm:right-0 sm:max-h-none sm:w-96 sm:rounded-none"
+      className="absolute inset-x-0 bottom-0 z-10 flex max-h-[72%] flex-col rounded-t-lg border border-outline-variant bg-surface-lowest shadow-pop sm:inset-y-0 sm:left-auto sm:right-0 sm:max-h-none sm:w-96 sm:rounded-none"
     >
       <div className="flex items-start gap-3 border-b border-outline-variant p-4">
         <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded text-white" style={{ backgroundColor: meta.color }}>

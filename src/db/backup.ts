@@ -122,6 +122,6 @@ export async function restoreBackup(backup: BackupFile, options: { restoreApiKey
       if (rows?.length) await table.bulkPut(rows);
     }
   });
-  if (options.restoreApiKey && backup.secrets?.geminiApiKey) setApiKey(backup.secrets.geminiApiKey);
+  if (options.restoreApiKey && backup.secrets?.geminiApiKey) await setApiKey(backup.secrets.geminiApiKey);
   return countRows(backup);
 }

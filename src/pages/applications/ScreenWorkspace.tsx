@@ -16,6 +16,7 @@ import BusinessLogicTab from './BusinessLogicTab';
 import FunctionalitiesTab from './FunctionalitiesTab';
 import Section from '@/components/ui/Section';
 import LinkedComponentsPanel from '@/components/technical/LinkedComponentsPanel';
+import PageSkeleton from '@/components/ui/Skeleton';
 
 const TAB_IDS = ['overview', 'ui', 'logic', 'functionalities', 'technical'] as const;
 type TabId = (typeof TAB_IDS)[number];
@@ -24,7 +25,7 @@ export default function ScreenWorkspace() {
   const { appId = '', screenId = '' } = useParams();
   const screen = useLiveQuery(() => db.screens.get(screenId).then((s) => s ?? null), [screenId]);
 
-  if (screen === undefined) return <p className="text-body-md text-on-surface-variant">Loading…</p>;
+  if (screen === undefined) return <PageSkeleton />;
   if (screen === null) {
     return (
       <EmptyState icon={AppWindow} title="Screen not found" description="It may have been deleted.">

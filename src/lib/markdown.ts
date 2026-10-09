@@ -33,6 +33,9 @@ function inline(text: string): string {
   });
   t = t.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
   t = t.replace(/(^|[^*])\*([^*\s][^*]*)\*(?!\*)/g, '$1<em>$2</em>');
+  // Image lines in generated documents are placeholders until the DOCX export embeds the real picture.
+  t = t.replace(/!\[([^\]]*)\]\(([^)\s]+)\)/g, (_m, alt: string) => `<span class="md-wire">${alt || 'Image placeholder'}</span>`);
+  t = t.replace(/&lt;br\s*\/?&gt;/gi, '<br>');
   t = t.replace(/\[([^\]]+)\]\(([^)\s]+)\)/g, (_m, label: string, href: string) => {
     const h = href.replace(/&amp;/g, '&');
     return /^(https?:\/\/|mailto:|#)/i.test(h) ? `<a href="${escapeHtml(h)}" target="_blank" rel="noopener noreferrer">${label}</a>` : label;

@@ -35,7 +35,10 @@ export default {
         'label-md': ['0.75rem', { lineHeight: '1rem', letterSpacing: '0.01em', fontWeight: '500' }],
         code: ['0.8125rem', { lineHeight: '1.25rem', fontWeight: '400' }],
       },
-      borderRadius: { DEFAULT: '0.25rem' },
+      borderRadius: { DEFAULT: '0.375rem', lg: '0.625rem' },
+      boxShadow: {
+        pop: '0 2px 4px rgb(var(--shadow) / var(--shadow-alpha)), 0 16px 40px -12px rgb(var(--shadow) / calc(var(--shadow-alpha) * 2))',
+      },
     },
   },
   plugins: [],
