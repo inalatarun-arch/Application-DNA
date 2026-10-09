@@ -44,14 +44,16 @@ export default function ApplicationFormModal({ open, application, onClose, onSav
 
   const set = <K extends keyof ApplicationInput>(key: K, value: ApplicationInput[K]) => setForm((f) => ({ ...f, [key]: value }));
 
-  const submit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const submit = async (e?: React.FormEvent) => {
+    e?.preventDefault();
+    if (busy) return;
     const next: typeof errors = {};
     if (!form.name.trim()) next.name = 'Application name is required.';
     if (!form.domain.trim()) next.domain = 'Domain is required.';
     if (!next.name && (await applicationNameExists(form.name, application?.id))) next.name = 'An application with this name already exists.';
     if (next.name || next.domain) {
-      setErrors(next);
+      setErrors({ ...next, form: 'Please fill in the highlighted fields.' });
+      window.setTimeout(() => document.getElementById(id(next.name ? 'name' : 'domain'))?.focus(), 0);
       return;
     }
     setBusy(true);
@@ -80,7 +82,7 @@ export default function ApplicationFormModal({ open, application, onClose, onSav
       footer={
         <>
           <button type="button" className="btn btn-secondary" onClick={onClose} disabled={busy}>Cancel</button>
-          <button type="submit" form={formId} className="btn btn-primary" disabled={busy}>{editing ? 'Save changes' : 'Create application'}</button>
+          <button type="button" className="btn btn-primary" disabled={busy} onClick={() => void submit()}>{busy ? 'Saving...' : editing ? 'Save changes' : 'Create application'}</button>
         </>
       }
     >
@@ -127,7 +129,7 @@ export default function ApplicationFormModal({ open, application, onClose, onSav
           <label htmlFor={id('tags')} className="field-label">Tags</label>
           <TagInput id={id('tags')} value={form.tags} onChange={(v) => set('tags', v)} placeholder="e.g. SOX, ERP" />
         </div>
-        {errors.form && <p className="text-body-md text-error md:col-span-2">{errors.form}</p>}
+        {errors.form && <p role="alert" className="rounded border border-error/40 bg-error-container px-3 py-2 text-body-md text-error md:col-span-2">{errors.form}</p>}
       </form>
     </Modal>
   );
