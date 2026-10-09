@@ -113,7 +113,15 @@ export async function fileToGeminiContent(file: File): Promise<GeminiContent> {
 }
 
 export async function filesToGeminiParts(files: File[]): Promise<GeminiContent[]> {
-  // Process sequentially to avoid simultaneously holding multiple 12 MB files as base64 strings.
+  // Inline PDF/image data is base64-encoded in a single generateContent request.
+  // Bound the combined payload to reduce predictable HTTP 400s on multi-file uploads.
+  const totalBytes = files.reduce((total, file) => total + file.size, 0);
+  const maxCombinedBytes = 14 * 1024 * 1024;
+  if (totalBytes > maxCombinedBytes) {
+    throw new Error('The selected files exceed 14 MB combined. Upload fewer or smaller files and try again.');
+  }
+
+  // Process sequentially to avoid simultaneously holding multiple files as base64 strings.
   const parts: GeminiContent[] = [];
   for (const file of files) parts.push(await fileToGeminiContent(file));
   return parts;
