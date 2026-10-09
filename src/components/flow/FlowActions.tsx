@@ -131,7 +131,7 @@ export default function FlowActions({ model, edited, onChange, onReset, onSave, 
           <button type="submit" className="btn btn-primary" disabled={!apiKey || !instruction.trim()}><Sparkles size={15} aria-hidden />Apply</button>
         )}
       </form>
-      {!apiKey && <p className="text-label-md text-on-surface-variant">Unlock or configure Gemini in Settings to edit with text. Exports work without it.</p>}
+      {!apiKey && <p className="text-label-md text-on-surface-variant">Unlock or configure AI in Settings to edit with text. Exports work without it.</p>}
       {notice && <p role="status" className="text-body-md">{notice}</p>}
       {error && <p role="alert" className="rounded border border-error bg-error-container p-3 text-body-md text-error">{error}</p>}
     </section>

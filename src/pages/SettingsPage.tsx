@@ -16,7 +16,7 @@ export default function SettingsPage() {
 
   return (
     <>
-      <PageHeader title="Settings" description="Configure the Gemini connection, your workspace and local data." />
+      <PageHeader title="Settings" description="Configure the AI connection, your workspace and local data." />
       <div className="space-y-6">
         <AiConfiguration />
         <WorkspaceCard />

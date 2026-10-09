@@ -45,7 +45,7 @@ export default function ApplicationAiIngest({ applicationId }: { applicationId: 
       const result = await extractApplicationKnowledge(app, modules ?? [], screens ?? [], functionalities ?? [], components ?? [], text, attachments, controller.signal, (done, total) => setProgress(total > 1 ? `Reading source batch ${Math.min(done + 1, total)} of ${total}...` : ''));
       const staged = stageExtraction(result.data);
       if (staged.length === 0 && !Object.keys(result.data.application).some((k) => (result.data.application as Record<string, unknown>)[k])) {
-        setNotice('Gemini found nothing it could extract from this material. Add more detail or a different file and try again.');
+        setNotice('The AI found nothing it could extract from this material. Add more detail or a different file and try again.');
       } else {
         setReview({ base: result.data, staged, model: result.model, truncated: result.truncated, images: files.filter((f) => f.type.startsWith('image/')) });
       }
@@ -63,7 +63,7 @@ export default function ApplicationAiIngest({ applicationId }: { applicationId: 
   };
 
   return (
-    <Section title="AI application capture" description="Describe the application in plain English and/or attach screenshots or documents. Gemini turns the evidence into structured modules, screens, business logic, functionalities and technical components. You review the result, change it by hand or by instruction, and only then is it saved.">
+    <Section title="AI application capture" description="Describe the application in plain English and/or attach screenshots or documents. The AI turns the evidence into structured modules, screens, business logic, functionalities and technical components. You review the result, change it by hand or by instruction, and only then is it saved.">
       <div className="space-y-4">
         <textarea className="input min-h-[150px]" value={text} onChange={(e) => setText(e.target.value)} placeholder="Example: Procurement users open Supplier Maintenance from Payables. They can create a supplier, validate Tax ID, save the record, and submit it for approval. Duplicate Tax IDs must be blocked. The screen calls the supplier API and writes to the supplier master table." />
         <div className="flex flex-wrap items-center gap-2">
@@ -78,8 +78,8 @@ export default function ApplicationAiIngest({ applicationId }: { applicationId: 
             <button type="button" className="btn btn-primary" disabled={!apiKey || (!text.trim() && files.length === 0)} onClick={() => void run()}><Sparkles size={16} aria-hidden /> Analyse and review</button>
           )}
         </div>
-        <p className="field-hint">TXT, Markdown, CSV, JSON, PDF, Word (DOCX), Excel (XLSX/XLS), PNG, JPG and WebP are supported. Each file is limited to 12 MB and the combined upload to 14 MB. Word and Excel content is extracted in the browser before it is sent to Gemini; PDF and image files are sent as supported binary inputs.</p>
-        {!apiKey && <p className="rounded border border-outline-variant bg-surface-low p-3 text-body-md">Configure Gemini in Settings → AI Configuration to enable AI capture.</p>}
+        <p className="field-hint">TXT, Markdown, CSV, JSON, PDF, Word (DOCX), Excel (XLSX/XLS), PNG, JPG and WebP are supported. Each file is limited to 12 MB and the combined upload to 14 MB. Word and Excel content is extracted in the browser before it is sent to the AI; PDF and image files are sent as supported binary inputs.</p>
+        {!apiKey && <p className="rounded border border-outline-variant bg-surface-low p-3 text-body-md">Configure AI in Settings → AI Configuration to enable AI capture.</p>}
         {busy && <p role="status" className="inline-flex items-center gap-2 text-body-md text-on-surface-variant"><Loader2 size={14} className="animate-spin" /> {progress || 'Reading the application evidence...'}</p>}
         {notice && <p role="status" className="rounded border border-outline-variant bg-surface-low p-3 text-body-md">{notice}</p>}
         {error && <p role="alert" className="rounded border border-error bg-error-container p-3 text-body-md text-error">{error}</p>}

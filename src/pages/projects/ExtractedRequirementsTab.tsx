@@ -106,12 +106,12 @@ export default function ExtractedRequirementsTab({ project, onOpenMeeting }: Pro
         <div className="flex flex-wrap items-end justify-between gap-3">
           <div>
             <h2 id="queue-heading" className="text-headline-md">Review queue</h2>
-            <p className="max-w-2xl text-body-md text-on-surface-variant">Requirements Gemini found in your transcripts. Edit anything that needs fixing, then accept or reject. Only accepted items move to the backlog.</p>
+            <p className="max-w-2xl text-body-md text-on-surface-variant">Requirements the AI found in your transcripts. Edit anything that needs fixing, then accept or reject. Only accepted items move to the backlog.</p>
           </div>
         </div>
 
         {candidates && all.length === 0 ? (
-          <EmptyState icon={ClipboardList} title="No suggestions yet" description="Process a transcript in Meeting notes and the requirements Gemini finds will appear here for review.">
+          <EmptyState icon={ClipboardList} title="No suggestions yet" description="Process a transcript in Meeting notes and the requirements the AI finds will appear here for review.">
             <button type="button" className="btn btn-secondary" onClick={() => setAdding(true)}>
               <Plus size={16} aria-hidden />
               Add a requirement manually

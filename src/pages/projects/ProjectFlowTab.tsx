@@ -110,7 +110,7 @@ export default function ProjectFlowTab({ project }: { project: Project }) {
     await db.artifacts.add({
       id: newId(), createdAt: t, updatedAt: t, projectId: project.id, kind: 'diagram',
       title: latest?.title ?? `Future-state flow · ${project.name}`, content,
-      version: (latest?.version ?? 0) + 1, status: 'draft', approvals: [], generatedBy: { model: 'edited with Gemini', at: t },
+      version: (latest?.version ?? 0) + 1, status: 'draft', approvals: [], generatedBy: { model: 'edited with AI', at: t },
     });
     setFlow(content);
     setEdited(null);
@@ -118,7 +118,7 @@ export default function ProjectFlowTab({ project }: { project: Project }) {
 
   return (
     <div className="space-y-6">
-      <Section title="Future-state process flow" description="Gemini starts from the documented current flows and describes only what the requirements change, which keeps the request small and the result easy to review.">
+      <Section title="Future-state process flow" description="The AI starts from the documented current flows and describes only what the requirements change, which keeps the request small and the result easy to review.">
         {freshness && (
           <p className="mb-4 flex items-start gap-2 rounded border border-outline-variant bg-surface-low p-3 text-body-md">
             <AlertTriangle size={16} className="mt-0.5 shrink-0" aria-hidden />
@@ -129,9 +129,9 @@ export default function ProjectFlowTab({ project }: { project: Project }) {
           {busy ? (
             <button type="button" className="btn btn-secondary" onClick={() => abort.current?.abort()}><Loader2 size={15} className="animate-spin" aria-hidden />Generating. Click to cancel</button>
           ) : (
-            <button type="button" className="btn btn-primary" disabled={!apiKey || !usable.length} onClick={() => void generate()}><Sparkles size={16} aria-hidden />Generate / update with Gemini</button>
+            <button type="button" className="btn btn-primary" disabled={!apiKey || !usable.length} onClick={() => void generate()}><Sparkles size={16} aria-hidden />Generate / update with AI</button>
           )}
-          {!apiKey && <span className="text-body-md text-on-surface-variant">Configure Gemini in Settings first.</span>}
+          {!apiKey && <span className="text-body-md text-on-surface-variant">Configure AI in Settings first.</span>}
           {!usable.length && <span className="text-body-md text-on-surface-variant">Add requirements before generating a future-state flow.</span>}
         </div>
         {notice && <p role="status" className="mt-4 rounded border border-outline-variant bg-surface-low p-3 text-body-md">{notice}</p>}

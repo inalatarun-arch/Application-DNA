@@ -121,7 +121,7 @@ export default function DataManagement() {
           <label className="mt-3 flex items-start gap-2 text-body-md">
             <input type="checkbox" className="mt-1" checked={includeKey} onChange={(e) => setIncludeKey(e.target.checked)} />
             <span>
-              Include my Gemini API key
+              Include my AI API keys
               <span className="field-hint block">Off by default. Anyone with the file could use the key.</span>
             </span>
           </label>
@@ -159,10 +159,10 @@ export default function DataManagement() {
             {Object.values(pendingCounts).reduce((a, b) => a + b, 0)} records. Your current data will be overwritten and cannot be recovered
             unless you have exported it.
           </p>
-          {pending.backup.secrets?.geminiApiKey && (
+          {pending.backup.secrets && Object.keys(pending.backup.secrets).length > 0 && (
             <label className="mt-3 flex items-center gap-2 text-body-md">
               <input type="checkbox" checked={restoreKey} onChange={(e) => setRestoreKey(e.target.checked)} />
-              Also restore the API key stored in this backup
+              Also restore the API keys stored in this backup
             </label>
           )}
           <div className="mt-4 flex gap-2">

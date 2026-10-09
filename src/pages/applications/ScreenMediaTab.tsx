@@ -76,7 +76,7 @@ export default function ScreenMediaTab({ screen }: { screen: Screen }) {
       const { filesToGeminiParts } = await import('@/lib/filePayload');
       const result = await extractScreenFromFiles(screen, await filesToGeminiParts(filesToAnalyze));
       await db.screens.update(screen.id, { ...result.data, updatedAt: nowIso() });
-      setAnalysisNotice('Gemini extracted ' + result.data.uiElements.length + ' UI elements. Review them in Screen Overview.');
+      setAnalysisNotice('The AI extracted ' + result.data.uiElements.length + ' UI elements. Review them in Screen Overview.');
       await addFiles(filesToAnalyze);
     } catch (err) {
       if (!(isGeminiError(err) && err.code === 'ABORTED')) setAnalysisError(describeError(err));
@@ -165,11 +165,11 @@ export default function ScreenMediaTab({ screen }: { screen: Screen }) {
 
       {analysisNotice && <p role="status" className="rounded border border-outline-variant bg-surface-low p-3 text-body-md">{analysisNotice}</p>}
       {analysisError && <p role="alert" className="rounded border border-error bg-error-container p-3 text-body-md text-error">{analysisError}</p>}
-      {!apiKey && <p className="field-hint">Configure Gemini in Settings to analyze screenshots with AI.</p>}
+      {!apiKey && <p className="field-hint">Configure AI in Settings to analyze screenshots with AI.</p>}
 
       {analysisNotice && <p role="status" className="rounded border border-outline-variant bg-surface-low p-3 text-body-md">{analysisNotice}</p>}
       {analysisError && <p role="alert" className="rounded border border-error bg-error-container p-3 text-body-md text-error">{analysisError}</p>}
-      {!apiKey && <p className="field-hint">Configure Gemini in Settings to analyze screenshots with AI.</p>}
+      {!apiKey && <p className="field-hint">Configure AI in Settings to analyze screenshots with AI.</p>}
 
       {errors.length > 0 && (
         <ul role="alert" className="rounded border border-error bg-error-container p-3 text-body-md text-error">

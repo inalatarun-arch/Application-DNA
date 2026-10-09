@@ -12,7 +12,8 @@ npm run build      # type-check + production build into dist/
 
 ## Notes
 - Routing uses `HashRouter` and `base: './'`, so `dist/` works on any static host or sub-path with no rewrite rules.
-- The Gemini key lives in an encrypted vault (AES-256-GCM, passphrase or device mode) in Settings > AI configuration. Alternatively, deploy the server proxy in `proxy/` (see `proxy/README.md`) so no key reaches the browser.
+- Choose the AI provider in Settings > AI configuration: Google Gemini, Anthropic Claude, or any OpenAI-compatible service (OpenAI, OpenRouter, Groq, Mistral, local servers; set the base URL). Each provider has its own encrypted key, live model list and model-per-feature settings. Calls go straight from the browser to the provider you pick.
+- Each key lives in an encrypted vault (AES-256-GCM, passphrase or device mode) in Settings > AI configuration. For Gemini only, you can instead deploy the server proxy in `proxy/` (see `proxy/README.md`) so no key reaches the browser.
 - All Gemini traffic goes through `src/services/geminiService.ts`.
 - Schema changes: add a new `this.version(n)` block in `src/db/db.ts` and bump `DB_SCHEMA_VERSION`.
 

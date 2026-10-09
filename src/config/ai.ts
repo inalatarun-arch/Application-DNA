@@ -36,6 +36,12 @@ export interface AiSettings {
   /** Models tried after the primary when Google returns 404 or 503. */
   fallbackModels: string[];
   temperature: number;
+  /**
+   * Stored shape only: model settings for providers other than Gemini. The top-level model fields above stay the
+   * Gemini ones so data saved by older versions keeps working. Use getAiSettings/useAiSettings, which return the
+   * fields for the active provider.
+   */
+  providerConfigs?: Partial<Record<'anthropic' | 'openai', { defaultModel: string; featureModels: Record<string, string>; fallbackModels: string[] }>>;
 }
 
 export const DEFAULT_AI_SETTINGS: AiSettings = {

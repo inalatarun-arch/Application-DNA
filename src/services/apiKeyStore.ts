@@ -7,6 +7,7 @@
  *  2. An optional server proxy (see docs/gemini-proxy-worker.js). The Google key then lives on the server
  *     and the browser holds no key at all; only the proxy URL and an optional shared token are stored here.
  */
+import { PROVIDERS, cleanBaseUrl, isProviderId, type ProviderId } from '@/config/providers';
 import {
   deleteVault,
   findLegacyKeys,
@@ -24,6 +25,8 @@ const PROXY_URL = 'eih.gemini.proxyUrl';
 const PROXY_TOKEN = 'eih.gemini.proxyToken';
 const LEGACY_PLAINTEXT_KEY = 'eih.gemini.apiKey';
 const CHANGE_EVENT = 'eih:apikey-changed';
+const ACTIVE_PROVIDER = 'eih.ai.provider';
+const BASE_URL_PREFIX = 'eih.ai.baseUrl.';
 
 const read = (k: string): string => {
   try {
@@ -33,13 +36,49 @@ const read = (k: string): string => {
   }
 };
 
-/** The decrypted key, or '' while locked or missing. Never throws. */
-export function getApiKey(): string {
+/** The provider all AI calls use. Kept in localStorage (not secret) so it can be read synchronously. */
+export function getActiveProvider(): ProviderId {
+  const v = read(ACTIVE_PROVIDER);
+  return isProviderId(v) ? v : 'gemini';
+}
+
+export function setActiveProvider(p: ProviderId): void {
   try {
-    return getKey();
+    localStorage.setItem(ACTIVE_PROVIDER, p);
+  } finally {
+    window.dispatchEvent(new Event(CHANGE_EVENT));
+  }
+}
+
+/** Endpoint for providers that allow a custom one; falls back to the provider default. */
+export function getBaseUrl(p: ProviderId): string {
+  if (!PROVIDERS[p].customBaseUrl) return PROVIDERS[p].defaultBaseUrl;
+  return cleanBaseUrl(read(BASE_URL_PREFIX + p)) || PROVIDERS[p].defaultBaseUrl;
+}
+
+export function setBaseUrl(p: ProviderId, url: string): void {
+  const clean = cleanBaseUrl(url);
+  if (url.trim() && !clean) throw new Error('The address must start with https:// (http:// is only allowed for localhost).');
+  try {
+    if (clean && clean !== PROVIDERS[p].defaultBaseUrl) localStorage.setItem(BASE_URL_PREFIX + p, clean);
+    else localStorage.removeItem(BASE_URL_PREFIX + p);
+  } finally {
+    window.dispatchEvent(new Event(CHANGE_EVENT));
+  }
+}
+
+/** The decrypted key for a provider (default: the active one), or '' while locked or missing. Never throws. */
+export function getApiKey(provider: ProviderId = getActiveProvider()): string {
+  try {
+    return getKey(provider);
   } catch {
     return '';
   }
+}
+
+/** True when this provider has any stored key (locked or not). */
+export function hasStoredKey(provider: ProviderId): boolean {
+  return getVaultSnapshot(provider).hasVault;
 }
 
 export interface ProxyConfig {
@@ -64,23 +103,24 @@ export function setProxy(url: string, token: string): void {
   }
 }
 
-/** Truthy when AI calls can be authorised right now: an unlocked key, or a configured proxy. */
+/** Truthy when AI calls can be authorised right now: an unlocked key for the active provider, or (Gemini only) a configured proxy. */
 export function getAiAccess(): string {
-  return getApiKey() || (getProxy().url ? 'proxy' : '');
+  const p = getActiveProvider();
+  return getApiKey(p) || (p === 'gemini' && getProxy().url ? 'proxy' : '');
 }
 
 /** Saves a key into the vault, device bound. Used by backup restore; the settings panel offers passphrase mode. */
-export async function setApiKey(key: string): Promise<void> {
+export async function setApiKey(key: string, provider: ProviderId = 'gemini'): Promise<void> {
   const clean = normalizeApiKey(key);
   if (!clean) {
-    await deleteVault();
+    await deleteVault(provider);
     return;
   }
-  await saveKey(clean, 'device');
+  await saveKey(clean, 'device', undefined, provider, PROVIDERS[provider].minKeyLength);
 }
 
-export async function clearApiKey(): Promise<void> {
-  await deleteVault();
+export async function clearApiKey(provider: ProviderId = 'gemini'): Promise<void> {
+  await deleteVault(provider);
 }
 
 /** For useSyncExternalStore; fires on vault lock/unlock/save/delete and on proxy changes. */
@@ -88,7 +128,7 @@ export function subscribeApiKey(listener: () => void): () => void {
   if (typeof window === 'undefined') return () => undefined;
   const offVault = subscribeVault(listener);
   const onStorage = (e: StorageEvent) => {
-    if (e.key === PROXY_URL || e.key === PROXY_TOKEN || e.key === null) listener();
+    if (e.key === PROXY_URL || e.key === PROXY_TOKEN || e.key === ACTIVE_PROVIDER || e.key === null) listener();
   };
   window.addEventListener(CHANGE_EVENT, listener);
   window.addEventListener('storage', onStorage);

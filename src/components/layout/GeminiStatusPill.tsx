@@ -2,27 +2,30 @@ import { Link } from 'react-router-dom';
 import { Loader2 } from 'lucide-react';
 import { useApiKey, useGeminiStatus } from '@/hooks/useApiKey';
 import { cn } from '@/lib/cn';
+import { PROVIDERS } from '@/config/providers';
+import { getActiveProvider } from '@/services/apiKeyStore';
 
 export default function GeminiStatusPill() {
-  useApiKey(); // re-render on key changes
+  useApiKey(); // re-render on key or provider changes
+  const name = PROVIDERS[getActiveProvider()].short;
   const status = useGeminiStatus();
 
   const view = (() => {
     switch (status.phase) {
       case 'connected':
-        return { text: `Connected${status.latencyMs ? ` · ${status.latencyMs} ms` : ''}`, title: `Gemini connected (${status.model ?? 'model'})`, dot: 'filled' as const };
+        return { text: `Connected${status.latencyMs ? ` · ${status.latencyMs} ms` : ''}`, title: `${name} connected (${status.model ?? 'model'})`, dot: 'filled' as const };
       case 'checking':
-        return { text: 'Checking…', title: 'Testing the Gemini connection', dot: 'spinner' as const };
+        return { text: 'Checking…', title: `Testing the ${name} connection`, dot: 'spinner' as const };
       case 'retrying':
-        return { text: status.message ?? 'Retrying…', title: status.message ?? 'Gemini request is being retried', dot: 'spinner' as const };
+        return { text: status.message ?? 'Retrying…', title: status.message ?? `${name} request is being retried`, dot: 'spinner' as const };
       case 'quota':
-        return { text: 'Quota reached', title: status.message ?? 'Gemini quota reached', dot: 'error' as const };
+        return { text: 'Quota reached', title: status.message ?? `${name} quota reached`, dot: 'error' as const };
       case 'error':
-        return { text: 'Connection error', title: status.message ?? 'Gemini connection error', dot: 'error' as const };
+        return { text: 'Connection error', title: status.message ?? `${name} connection error`, dot: 'error' as const };
       case 'untested':
         return { text: 'Key not verified', title: 'A key is saved but has not been tested. Open Settings to test it.', dot: 'hollow' as const };
       default:
-        return { text: 'No API key', title: 'Add a Gemini API key in Settings', dot: 'hollow' as const };
+        return { text: 'No API key', title: `Add a ${name} API key in Settings`, dot: 'hollow' as const };
     }
   })();
   const isError = view.dot === 'error';
@@ -31,7 +34,7 @@ export default function GeminiStatusPill() {
     <Link
       to="/settings"
       title={view.title}
-      aria-label={`Gemini status: ${view.text}. Open AI settings.`}
+      aria-label={`${name} status: ${view.text}. Open AI settings.`}
       className={cn(
         'inline-flex items-center gap-2 rounded-full border px-3 py-1 text-label-md transition-colors hover:bg-surface-container',
         isError ? 'border-error text-error' : 'border-outline-variant text-on-surface-variant',
@@ -50,7 +53,7 @@ export default function GeminiStatusPill() {
           )}
         />
       )}
-      <span className="font-semibold text-on-surface">Gemini</span>
+      <span className="font-semibold text-on-surface">{name}</span>
       <span className={cn('hidden sm:inline', isError && 'text-error')}>{view.text}</span>
     </Link>
   );

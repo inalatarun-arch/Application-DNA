@@ -226,10 +226,10 @@ export default function ImpactTab({ project }: { project: Project }) {
         )}
       </Section>
 
-      <Section title="AI impact assessment" description="Gemini reads the requirements and the documented scope and writes a functional and technical assessment with risks and gaps.">
+      <Section title="AI impact assessment" description="The AI reads the requirements and the documented scope and writes a functional and technical assessment with risks and gaps.">
         <div className="flex flex-wrap items-center gap-3 rounded border border-outline-variant bg-surface-low p-4">
           {!apiKey ? (
-            <p className="text-body-md">Add your Gemini API key to generate an assessment. <Link to="/settings" className="font-semibold underline">Open settings</Link></p>
+            <p className="text-body-md">Add your AI API key to generate an assessment. <Link to="/settings" className="font-semibold underline">Open settings</Link></p>
           ) : busy ? (
             <>
               <button type="button" className="btn btn-secondary" onClick={() => abort.current?.abort()}>
@@ -248,7 +248,7 @@ export default function ImpactTab({ project }: { project: Project }) {
                 {latest ? 'Generate a new version' : 'Generate assessment'}
               </button>
               <span className="text-body-md text-on-surface-variant">
-                {(requirements ?? []).length === 0 ? 'Add requirements to the backlog first.' : `Uses ${model}. Project details and the documented scope are sent to Google's Gemini API.`}
+                {(requirements ?? []).length === 0 ? 'Add requirements to the backlog first.' : `Uses ${model}. Project details and the documented scope are sent to your selected AI provider.`}
               </span>
             </>
           )}
@@ -256,7 +256,7 @@ export default function ImpactTab({ project }: { project: Project }) {
         {apiKey && !busy && (
           <div className="flex flex-wrap items-end gap-3">
             <div>
-              <label htmlFor="impact-level" className="field-label">Detail sent to Gemini</label>
+              <label htmlFor="impact-level" className="field-label">Detail sent to the AI</label>
               <select id="impact-level" className="input w-auto" value={level} onChange={(e) => setLevel(e.target.value as DigestLevel)}>
                 {(Object.keys(DIGEST_LABEL) as DigestLevel[]).map((l) => <option key={l} value={l}>{DIGEST_LABEL[l]}</option>)}
               </select>
@@ -271,7 +271,7 @@ export default function ImpactTab({ project }: { project: Project }) {
           <div className="space-y-5">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <p className="text-label-md font-normal text-on-surface-variant">
-                Version {latest.version} · {latest.generatedBy?.model ?? 'Gemini'} · {new Date(latest.createdAt).toLocaleString()}
+                Version {latest.version} · {latest.generatedBy?.model ?? 'AI'} · {new Date(latest.createdAt).toLocaleString()}
               </p>
               <button type="button" className="btn btn-secondary px-3 py-1.5" onClick={() => saveText(`${fileBase(project.name, 'impact-assessment')}.md`, impactToMarkdown(project, assessment))}>
                 <Download size={14} aria-hidden />

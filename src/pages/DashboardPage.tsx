@@ -35,7 +35,7 @@ export default function DashboardPage() {
   }, []);
 
   const steps = [
-    { done: !!apiKey, label: 'Add a Gemini API key', to: '/settings', cta: 'Open settings' },
+    { done: !!apiKey, label: 'Add an AI API key', to: '/settings', cta: 'Open settings' },
     { done: status.phase === 'connected', label: 'Test the connection', to: '/settings', cta: 'Test connection' },
     { done: (counts?.applications ?? 0) > 0, label: 'Document your first application', to: '/applications', cta: 'Go to Applications' },
     { done: (counts?.projects ?? 0) > 0, label: 'Create a project and link impacted applications', to: '/projects', cta: 'Go to Projects' },

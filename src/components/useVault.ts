@@ -1,8 +1,7 @@
 import { useSyncExternalStore } from 'react';
-import { getVaultSnapshot, subscribeVault } from '../lib/vault';
-import type { VaultState } from '../lib/vault';
+import { getVaultSnapshot, subscribeVault, type VaultSlot } from '../lib/vault';
 
-/** Reactive view of the key vault: { hasVault, unlocked, mode }. */
-export function useVault(): VaultState {
-  return useSyncExternalStore(subscribeVault, getVaultSnapshot, getVaultSnapshot);
+/** Reactive state of one provider's key vault (locked / unlocked / mode). */
+export function useVault(slot: VaultSlot = 'gemini') {
+  return useSyncExternalStore(subscribeVault, () => getVaultSnapshot(slot), () => getVaultSnapshot(slot));
 }

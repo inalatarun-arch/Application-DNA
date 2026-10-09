@@ -117,7 +117,7 @@ export default function StudioPage() {
         await db.deliveryDocuments.update(d.id, { content: result.markdown, version: d.version + 1, updatedAt: nowIso(), status: 'draft', generatedAt: nowIso() });
       });
       setRun(result);
-      setNotice(`Generated with ${result.model || 'Gemini'}: ${result.tokens.prompt.toLocaleString()} input and ${result.tokens.output.toLocaleString()} output tokens.${flowArtifact ? '' : ' No future-state flow exists yet, so the model drew the process in section 2.1.'}`);
+      setNotice(`Generated with ${result.model || 'AI'}: ${result.tokens.prompt.toLocaleString()} input and ${result.tokens.output.toLocaleString()} output tokens.${flowArtifact ? '' : ' No future-state flow exists yet, so the model drew the process in section 2.1.'}`);
     });
   };
 
@@ -131,7 +131,7 @@ export default function StudioPage() {
       if (!todo.length) { setNotice('Every approved requirement already has a story.'); return; }
       const out = await generateStories(todo, stories, signal);
       const saved = await saveGeneratedStories(projectId, out.drafts);
-      setNotice(`Gemini wrote ${saved.created} stor${saved.created === 1 ? 'y' : 'ies'} for ${todo.length} requirement${todo.length === 1 ? '' : 's'}${saved.skipped ? `; ${saved.skipped} skipped as duplicates` : ''}${out.ignored ? `; ${out.ignored} unusable item${out.ignored === 1 ? '' : 's'} ignored` : ''}.`);
+      setNotice(`The AI wrote ${saved.created} stor${saved.created === 1 ? 'y' : 'ies'} for ${todo.length} requirement${todo.length === 1 ? '' : 's'}${saved.skipped ? `; ${saved.skipped} skipped as duplicates` : ''}${out.ignored ? `; ${out.ignored} unusable item${out.ignored === 1 ? '' : 's'} ignored` : ''}.`);
     });
   };
 
@@ -185,7 +185,7 @@ export default function StudioPage() {
             <option value="tdd">{LABEL.tdd}</option>
           </select>
         </label>
-        <label className="text-sm">Detail sent to Gemini
+        <label className="text-sm">Detail sent to the AI
           <select className="input mt-1 block" value={level} onChange={(e) => setLevel(e.target.value as DigestLevel)}>
             {(Object.keys(DIGEST_LABEL) as DigestLevel[]).map((l) => <option key={l} value={l}>{DIGEST_LABEL[l]}</option>)}
           </select>
@@ -205,7 +205,7 @@ export default function StudioPage() {
         <button type="button" className="btn btn-secondary" disabled={!text.trim()} onClick={() => downloadBlob(new Blob([text], { type: 'text/markdown' }), `${slug(project?.name ?? 'project')}-${type}.md`)}><Download size={15} aria-hidden />Markdown</button>
         <button type="button" className="btn btn-secondary" disabled={!projectId} onClick={exportRtm}><Table2 size={15} aria-hidden />RTM</button>
       </div>
-      {!apiKey && <p className="mb-4 text-body-md text-on-surface-variant">Unlock or configure Gemini in Settings to generate and revise. Editing, versions, approval and downloads work without it.</p>}
+      {!apiKey && <p className="mb-4 text-body-md text-on-surface-variant">Unlock or configure AI in Settings to generate and revise. Editing, versions, approval and downloads work without it.</p>}
       {progress && (
         <div role="status" className="mb-4 rounded border border-outline-variant bg-surface-low p-3 text-body-md">
           <div className="mb-2 flex justify-between"><span>{progress.label}</span><span className="tabular-nums">{progress.done} of {progress.total}</span></div>
@@ -240,7 +240,7 @@ export default function StudioPage() {
             )}
             <form className="flex flex-wrap items-end gap-2 border-t border-outline-variant pt-3" onSubmit={(e) => { e.preventDefault(); revise(); }}>
               <div className="min-w-[240px] flex-1">
-                <label htmlFor="doc-instruction" className="field-label">Ask Gemini to change this document</label>
+                <label htmlFor="doc-instruction" className="field-label">Ask AI to change this document</label>
                 <input id="doc-instruction" className="input" maxLength={800} value={instruction} onChange={(e) => setInstruction(e.target.value)} disabled={!apiKey || !text.trim()} placeholder="e.g. Add a rule that payments above 10,000 need a second approver" />
               </div>
               <button type="submit" className="btn btn-primary" disabled={!apiKey || !instruction.trim() || !text.trim() || working}>{busy === 'revise' ? <Loader2 size={15} className="animate-spin" aria-hidden /> : <Sparkles size={15} aria-hidden />}Revise</button>

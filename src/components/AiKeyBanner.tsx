@@ -1,25 +1,28 @@
 import { useState } from 'react';
 import { Lock, KeyRound, Loader2 } from 'lucide-react';
 import { useVault } from './useVault';
+import { useApiKey } from '@/hooks/useApiKey';
 import { unlock } from '../lib/vault';
-import { getProxy } from '@/services/apiKeyStore';
+import { getActiveProvider, getProxy } from '@/services/apiKeyStore';
 import { btnPrimary, btnSecondary, input } from './ui';
 
-/** Shown above AI pages when the shared Gemini key is missing or locked. Renders nothing when ready. */
+/** Shown above AI pages when the shared AI key is missing or locked. Renders nothing when ready. */
 export function AiKeyBanner({ onOpenSettings }: { onOpenSettings: () => void }) {
-  const vault = useVault();
+  useApiKey(); // re-render when the provider changes
+  const provider = getActiveProvider();
+  const vault = useVault(provider);
   const [pass, setPass] = useState('');
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
 
   // Pages already explain a missing key; the banner is only for a saved key that is locked.
-  if (vault.unlocked || !vault.hasVault || getProxy().url) return null;
+  if (vault.unlocked || !vault.hasVault || (provider === 'gemini' && getProxy().url)) return null;
 
   const doUnlock = async () => {
     setBusy(true);
     setErr('');
     try {
-      await unlock(pass);
+      await unlock(pass, provider);
       setPass('');
     } catch (e) {
       setErr(e instanceof Error ? e.message : 'Could not unlock.');
@@ -33,7 +36,7 @@ export function AiKeyBanner({ onOpenSettings }: { onOpenSettings: () => void }) 
       {vault.hasVault ? <Lock size={16} /> : <KeyRound size={16} />}
       {!vault.hasVault ? (
         <>
-          <span className="flex-1">AI features need your Gemini API key. Add it once - it is stored encrypted.</span>
+          <span className="flex-1">AI features need your API key. Add it once - it is stored encrypted.</span>
           <button className={btnPrimary} onClick={onOpenSettings}>
             Open AI Settings
           </button>

@@ -1,7 +1,10 @@
-import { useCallback } from 'react';
+import { useCallback, useSyncExternalStore } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db, nowIso } from './db';
-import { DEFAULT_AI_SETTINGS, type AiSettings } from '@/config/ai';
+import { type AiSettings } from '@/config/ai';
+import { type ProviderId } from '@/config/providers';
+import { applyPatch, viewForProvider } from './settingsView';
+import { getActiveProvider, subscribeApiKey } from '@/services/apiKeyStore';
 
 export const SETTING_KEYS = {
   ai: 'ai',
@@ -12,6 +15,8 @@ export interface WorkspaceSettings {
   name: string;
   description: string;
 }
+
+export { applyPatch, viewForProvider };
 
 export const DEFAULT_WORKSPACE: WorkspaceSettings = { name: 'Default Workspace', description: '' };
 
@@ -24,34 +29,19 @@ export async function setSetting<T>(key: string, value: T): Promise<void> {
   await db.settings.put({ key, value, updatedAt: nowIso() });
 }
 
-function mergeAi(value: Partial<AiSettings> | undefined): AiSettings {
-  const rawFallbacks = Array.isArray(value?.fallbackModels) ? value.fallbackModels : DEFAULT_AI_SETTINGS.fallbackModels;
-  const fallbackModels = rawFallbacks
-    .filter((model): model is string => typeof model === 'string')
-    .map((model) => model.trim())
-    .filter(Boolean)
-    .filter((model, index, all) => all.indexOf(model) === index);
-
-  return {
-    ...DEFAULT_AI_SETTINGS,
-    ...value,
-    featureModels: { ...DEFAULT_AI_SETTINGS.featureModels, ...value?.featureModels },
-    fallbackModels,
-  };
-}
-
-export async function getAiSettings(): Promise<AiSettings> {
+export async function getAiSettings(provider: ProviderId = getActiveProvider()): Promise<AiSettings> {
   const row = await db.settings.get(SETTING_KEYS.ai);
-  return mergeAi(row?.value as Partial<AiSettings> | undefined);
+  return viewForProvider(row?.value as Partial<AiSettings> | undefined, provider);
 }
 
-/** Reactive AI settings. `patch` shallow-merges into the stored record. */
+/** Reactive AI settings for the active provider. `patch` shallow-merges into that provider's stored settings. */
 export function useAiSettings(): [AiSettings, (patch: Partial<AiSettings>) => Promise<void>] {
+  const provider = useSyncExternalStore(subscribeApiKey, getActiveProvider);
   const row = useLiveQuery(() => db.settings.get(SETTING_KEYS.ai), []);
-  const current = mergeAi(row?.value as Partial<AiSettings> | undefined);
+  const current = viewForProvider(row?.value as Partial<AiSettings> | undefined, provider);
   const update = useCallback(async (patch: Partial<AiSettings>) => {
-    const latest = await getAiSettings();
-    await setSetting(SETTING_KEYS.ai, { ...latest, ...patch });
+    const latest = await db.settings.get(SETTING_KEYS.ai);
+    await setSetting(SETTING_KEYS.ai, applyPatch(latest?.value as Partial<AiSettings> | undefined, getActiveProvider(), patch));
   }, []);
   return [current, update];
 }

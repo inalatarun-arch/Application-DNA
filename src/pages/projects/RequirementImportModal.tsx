@@ -10,7 +10,7 @@ import { db } from '@/db/db';
 import type { Project } from '@/db/types';
 import { useGraphSource } from '@/hooks/useGraphSource';
 
-const model=(m:string)=>m||'Gemini';
+const model=(m:string)=>m||'AI';
 
 export default function RequirementImportModal({ open, project, onClose, onImported }: { open:boolean; project:Project; onClose:()=>void; onImported:()=>void }) {
  const apiKey=useApiKey(); const source=useGraphSource(); const [files,setFiles]=useState<File[]>([]); const [busy,setBusy]=useState(false); const [error,setError]=useState(''); const [notice,setNotice]=useState(''); const input=useRef<HTMLInputElement>(null);
@@ -43,7 +43,7 @@ export default function RequirementImportModal({ open, project, onClose, onImpor
  };
  return <Modal open={open} onClose={busy?()=>{}:onClose} title="Import requirements with AI" size="lg">
   <div className="space-y-4">
-   <p className="text-body-md text-on-surface-variant">Upload a requirements document, spreadsheet, PDF, transcript or other source. Gemini will extract requirements, acceptance criteria and map them to documented functionalities where evidence exists.</p>
+   <p className="text-body-md text-on-surface-variant">Upload a requirements document, spreadsheet, PDF, transcript or other source. The AI will extract requirements, acceptance criteria and map them to documented functionalities where evidence exists.</p>
    <button type="button" className="btn btn-secondary" onClick={()=>input.current?.click()} disabled={busy}><FileUp size={16}/>Choose files</button>
    <input ref={input} type="file" multiple className="sr-only" onChange={e=>{setFiles(Array.from(e.target.files??[]));e.target.value='';}}/>
    {files.length>0&&<p className="text-label-md text-on-surface-variant">{files.map(f=>f.name).join(', ')}</p>}

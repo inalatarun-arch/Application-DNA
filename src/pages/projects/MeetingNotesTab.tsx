@@ -40,7 +40,7 @@ export default function MeetingNotesTab({ project, onReview }: Props) {
   if (meetings && meetings.length === 0) {
     return (
       <>
-        <EmptyState icon={FileText} title="No meetings yet" description="Add a kickoff or workshop session, paste or upload the transcript, and Gemini will write the notes and suggest requirements for you to review.">
+        <EmptyState icon={FileText} title="No meetings yet" description="Add a kickoff or workshop session, paste or upload the transcript, and The AI will write the notes and suggest requirements for you to review.">
           <button type="button" className="btn btn-primary" onClick={() => setCreating(true)}>
             <Plus size={16} aria-hidden />
             New meeting

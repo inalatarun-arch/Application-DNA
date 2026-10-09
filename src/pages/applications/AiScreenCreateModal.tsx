@@ -24,7 +24,7 @@ export default function AiScreenCreateModal({ open, module, onClose, onCreated }
  };
  return <Modal open={open} onClose={busy?()=>{}:onClose} title={`AI create screen in ${module.name}`} size="lg">
   <div className="space-y-4">
-   <p className="text-body-md text-on-surface-variant">Describe the screen, attach one or more screenshots/documents, or do both. Gemini will create the screen documentation and extract editable fields, inputs, buttons and other controls.</p>
+   <p className="text-body-md text-on-surface-variant">Describe the screen, attach one or more screenshots/documents, or do both. The AI will create the screen documentation and extract editable fields, inputs, buttons and other controls.</p>
    <textarea className="input min-h-[120px]" value={text} onChange={e=>setText(e.target.value)} placeholder="Example: Supplier Maintenance lets AP users search suppliers, create a supplier, edit payment terms and submit the supplier for approval."/>
    <div className="flex flex-wrap items-center gap-2">
     <button type="button" className="btn btn-secondary" onClick={()=>input.current?.click()}><FileUp size={16}/>Attach screenshots / files</button>

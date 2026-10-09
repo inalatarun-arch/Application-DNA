@@ -2,16 +2,20 @@ import { useState } from 'react';
 import { AlertTriangle, Eye, EyeOff, KeyRound, Loader2, Lock, ShieldCheck, Trash2, Unlock, Zap } from 'lucide-react';
 import { useVault } from './useVault';
 import { deleteVault, findLegacyKeys, lock, readLegacyKey, saveKey, unlock, wipeLegacyKeys, type LegacyKeyHit, type VaultMode } from '@/lib/vault';
-import { getProxy, setProxy } from '@/services/apiKeyStore';
+import { PROVIDERS, type ProviderId } from '@/config/providers';
+import { getBaseUrl, getProxy, setBaseUrl, setProxy } from '@/services/apiKeyStore';
 import { testConnection, type ConnectionTestResult } from '@/services/geminiService';
 import { useAiSettings } from '@/db/settings';
 import { cn } from '@/lib/cn';
 
 const MIN_PASSPHRASE = 8;
 
-/** Where the Gemini key lives: encrypted in this browser (passphrase or device), or on a server proxy that holds it. */
-export default function KeyVaultCard() {
-  const vault = useVault();
+/** Where one provider's key lives: encrypted in this browser (passphrase or device), or (Gemini only) on a server proxy. */
+export default function KeyVaultCard({ provider = 'gemini' }: { provider?: ProviderId }) {
+  const info = PROVIDERS[provider];
+  const isGemini = provider === 'gemini';
+  const vault = useVault(provider);
+  const [baseUrl, setBaseUrlDraft] = useState(() => getBaseUrl(provider));
   const [ai] = useAiSettings();
   const [key, setKey] = useState('');
   const [reveal, setReveal] = useState(false);
@@ -24,12 +28,12 @@ export default function KeyVaultCard() {
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const [test, setTest] = useState<ConnectionTestResult | null>(null);
   const [testing, setTesting] = useState(false);
-  const [legacy, setLegacy] = useState<LegacyKeyHit[]>(() => findLegacyKeys());
+  const [legacy, setLegacy] = useState<LegacyKeyHit[]>(() => (isGemini ? findLegacyKeys() : []));
   const [proxyUrl, setProxyUrl] = useState(() => getProxy().url);
   const [proxyToken, setProxyToken] = useState(() => getProxy().token);
 
   const showForm = !vault.hasVault || replacing;
-  const proxyOn = !!getProxy().url;
+  const proxyOn = isGemini && !!getProxy().url;
 
   const run = async (fn: () => Promise<void>) => {
     setBusy(true);
@@ -50,15 +54,15 @@ export default function KeyVaultCard() {
   };
 
   const onSave = () => run(async () => {
-    if (!key.trim()) throw new Error('Paste your Gemini API key first.');
+    if (!key.trim()) throw new Error(`Paste your ${info.short} API key first.`);
     checkPassphrase();
-    await saveKey(key, mode, pass);
+    await saveKey(key, mode, pass, provider, info.minKeyLength);
     setKey(''); setPass(''); setPass2(''); setReveal(false); setReplacing(false); setTest(null);
     setMsg({ ok: true, text: 'Key encrypted and saved. It is unlocked for this session.' });
   });
 
   const onUnlock = () => run(async () => {
-    await unlock(unlockPass);
+    await unlock(unlockPass, provider);
     setUnlockPass('');
     setMsg({ ok: true, text: 'Unlocked for this browser session.' });
   });
@@ -67,7 +71,7 @@ export default function KeyVaultCard() {
     setTesting(true);
     setTest(null);
     try {
-      setTest(await testConnection({ model: ai.defaultModel }));
+      setTest(await testConnection({ model: ai.defaultModel, provider }));
     } finally {
       setTesting(false);
     }
@@ -77,7 +81,7 @@ export default function KeyVaultCard() {
     const first = legacy.map(readLegacyKey).find((k): k is string => !!k);
     if (!first) throw new Error('Could not read the old key.');
     checkPassphrase();
-    await saveKey(first, mode, pass);
+    await saveKey(first, mode, pass, 'gemini');
     wipeLegacyKeys(legacy);
     setLegacy(findLegacyKeys());
     setPass(''); setPass2('');
@@ -119,12 +123,12 @@ export default function KeyVaultCard() {
             {proxyOn ? 'Using a server proxy' : !vault.hasVault ? 'No API key saved' : vault.unlocked ? 'API key unlocked for this session' : 'API key saved and locked'}
           </p>
           <p className="text-label-md font-normal text-on-surface-variant">
-            {proxyOn ? 'Requests go to your proxy, which holds the key.' : vault.hasVault ? `Stored encrypted (AES-256-GCM, ${vault.mode === 'passphrase' ? 'passphrase' : 'device'} protected). It is never shown again.` : 'Create a key in Google AI Studio and paste it below. It is encrypted before it is stored.'}
+            {proxyOn ? 'Requests go to your proxy, which holds the key.' : vault.hasVault ? `Stored encrypted (AES-256-GCM, ${vault.mode === 'passphrase' ? 'passphrase' : 'device'} protected). It is never shown again.` : `Create a key in ${info.keyUrlLabel} and paste it below. It is encrypted before it is stored.`}
           </p>
         </div>
-        {vault.hasVault && vault.unlocked && <button type="button" className="btn btn-secondary px-3 py-1.5" onClick={lock}><Lock size={14} aria-hidden />Lock</button>}
+        {vault.hasVault && vault.unlocked && <button type="button" className="btn btn-secondary px-3 py-1.5" onClick={() => lock(provider)}><Lock size={14} aria-hidden />Lock</button>}
         {vault.hasVault && !replacing && <button type="button" className="btn btn-secondary px-3 py-1.5" onClick={() => setReplacing(true)}>Replace</button>}
-        {vault.hasVault && <button type="button" className="btn btn-secondary px-3 py-1.5" onClick={() => { if (window.confirm('Delete the stored API key from this browser?')) void deleteVault(); }}><Trash2 size={14} aria-hidden />Remove</button>}
+        {vault.hasVault && <button type="button" className="btn btn-secondary px-3 py-1.5" onClick={() => { if (window.confirm('Delete the stored API key from this browser?')) void deleteVault(provider); }}><Trash2 size={14} aria-hidden />Remove</button>}
       </div>
 
       {vault.hasVault && !vault.unlocked && vault.mode === 'passphrase' && (
@@ -142,15 +146,29 @@ export default function KeyVaultCard() {
         </div>
       )}
 
+      {info.customBaseUrl && (
+        <div className="space-y-2">
+          <label htmlFor={`${provider}-base`} className="field-label">Base URL</label>
+          <div className="flex gap-2">
+            <input id={`${provider}-base`} className="input flex-1 font-mono" value={baseUrl} onChange={(e) => setBaseUrlDraft(e.target.value)} spellCheck={false} placeholder={info.defaultBaseUrl} />
+            <button type="button" className="btn btn-secondary" disabled={busy} onClick={() => void run(async () => { setBaseUrl(provider, baseUrl); setBaseUrlDraft(getBaseUrl(provider)); setMsg({ ok: true, text: 'Address saved. Press Refresh next to the model list to load that service\'s models.' }); })}>Save address</button>
+          </div>
+          <p className="field-hint">Leave as is for OpenAI. For OpenRouter, Groq, Mistral or a local server, paste its OpenAI-style address (it usually ends in /v1). If your server needs no key, enter any placeholder of 8 or more characters.</p>
+        </div>
+      )}
+
       {showForm && (
         <div className="space-y-4">
           <div>
-            <label htmlFor="gemini-key" className="field-label">Gemini API key</label>
+            <label htmlFor={`${provider}-key`} className="field-label">{info.short} API key</label>
             <div className="relative">
               <KeyRound size={16} aria-hidden className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-outline" />
-              <input id="gemini-key" name="gemini-api-key" type={reveal ? 'text' : 'password'} value={key} onChange={(e) => setKey(e.target.value)} placeholder="AIza…" autoComplete="off" spellCheck={false} data-1p-ignore className="input pl-9 pr-10 font-mono" />
+              <input id={`${provider}-key`} name={`${provider}-api-key`} type={reveal ? 'text' : 'password'} value={key} onChange={(e) => setKey(e.target.value)} placeholder={info.keyPlaceholder} autoComplete="off" spellCheck={false} data-1p-ignore className="input pl-9 pr-10 font-mono" />
               <button type="button" onClick={() => setReveal((r) => !r)} aria-label={reveal ? 'Hide API key' : 'Show API key'} aria-pressed={reveal} className="icon-btn absolute right-0.5 top-1/2 h-8 w-8 -translate-y-1/2">{reveal ? <EyeOff size={16} aria-hidden /> : <Eye size={16} aria-hidden />}</button>
             </div>
+            <p className="field-hint">
+              Get a key from <a className="underline" href={info.keyUrl} target="_blank" rel="noreferrer">{info.keyUrlLabel}</a>. {info.note}
+            </p>
           </div>
           {modePicker}
           <div className="flex gap-2">
@@ -175,7 +193,7 @@ export default function KeyVaultCard() {
         )}
       </div>
 
-      <details className="rounded border border-outline-variant" open={proxyOn}>
+      {isGemini && <details className="rounded border border-outline-variant" open={proxyOn}>
         <summary className="cursor-pointer px-4 py-2 text-body-md font-medium">Keep the key off this device with a server proxy</summary>
         <div className="space-y-3 border-t border-outline-variant p-4">
           <p className="text-label-md font-normal text-on-surface-variant">
@@ -191,7 +209,7 @@ export default function KeyVaultCard() {
           </div>
           <button type="button" className="btn btn-secondary" disabled={busy} onClick={() => void onProxy()}>Save proxy</button>
         </div>
-      </details>
+      </details>}
     </div>
   );
 }

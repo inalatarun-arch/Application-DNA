@@ -3,13 +3,16 @@
  * Every AI feature (transcripts, FRD/TDD, impact analysis, Copilot...) calls through here so that
  * key handling, model routing, retries and error mapping live in exactly one place.
  */
-import { getApiKey, getProxy } from './apiKeyStore';
+import { getActiveProvider, getApiKey, getProxy } from './apiKeyStore';
+import { providerGenerateJson, providerGenerateText, providerListModels, providerStreamText, providerTest, type OtherProvider } from './providerClient';
+import type { ProviderId } from '@/config/providers';
 import { setStatus } from './geminiStatus';
 import { getVaultSnapshot } from '@/lib/vault';
 import { parseJsonLoose } from '@/lib/jsonRepair';
 import { getAiSettings } from '@/db/settings';
 import type { AiFeature } from '@/config/ai';
 import { safeTrim } from '@/lib/safeValue';
+import { GeminiBlockedError, GeminiEmptyResponseError, GeminiError, GeminiTruncatedError, KeyLockedError, describeError, isGeminiError, type GeminiErrorCode } from './aiErrors';
 
 const API_BASE = 'https://generativelanguage.googleapis.com/v1beta';
 const DEFAULT_TIMEOUT_MS = 90_000;
@@ -17,71 +20,17 @@ const MAX_AUTO_RETRY_DELAY_MS = 15_000;
 
 // ---------------------------------------------------------------- errors
 
-export type GeminiErrorCode =
-  | 'MISSING_KEY'
-  | 'INVALID_KEY'
-  | 'PERMISSION_DENIED'
-  | 'QUOTA_EXCEEDED'
-  | 'MODEL_NOT_FOUND'
-  | 'BAD_REQUEST'
-  | 'BLOCKED'
-  | 'EMPTY_RESPONSE'
-  | 'SERVER_ERROR'
-  | 'TIMEOUT'
-  | 'ABORTED'
-  | 'NETWORK'
-  | 'PARSE'
-  | 'UNKNOWN';
-
-export class GeminiHttpError extends Error {
-  readonly status: number;
-  constructor(status: number, message: string) { super(message); this.name = 'GeminiHttpError'; this.status = status; }
-}
-export class GeminiBlockedError extends Error {
-  constructor(message: string) { super(message); this.name = 'GeminiBlockedError'; }
-}
-export class GeminiEmptyResponseError extends Error {
-  constructor(message = 'Gemini returned an empty response. Try again.') { super(message); this.name = 'GeminiEmptyResponseError'; }
-}
-export class GeminiTruncatedError extends Error {
-  constructor(message = 'Gemini stopped before completing the response. Raise maxOutputTokens and try again.') { super(message); this.name = 'GeminiTruncatedError'; }
-}
-export class GeminiError extends GeminiHttpError {
-  readonly code: GeminiErrorCode;
-  readonly httpStatus?: number;
-  /** Server-suggested wait before retrying (quota / overload). */
-  readonly retryAfterMs?: number;
-
-  constructor(
-    code: GeminiErrorCode,
-    message: string,
-    extra: { httpStatus?: number; retryAfterMs?: number; cause?: unknown } = {},
-  ) {
-    super(extra.httpStatus ?? 0, message);
-    this.name = 'GeminiError';
-    this.code = code;
-    this.httpStatus = extra.httpStatus;
-    this.retryAfterMs = extra.retryAfterMs;
-  }
-}
-
-/** Thrown when a key is saved but still encrypted for this session. Reported as MISSING_KEY so callers treat it uniformly. */
-export class KeyLockedError extends GeminiError {
-  constructor(message = 'Your Gemini API key is locked for this session. Unlock it with the banner at the top of the page or in Settings, then try again.') {
-    super('MISSING_KEY', message);
-    this.name = 'KeyLockedError';
-  }
-}
-
-export function isGeminiError(err: unknown): err is GeminiError {
-  return err instanceof GeminiError;
-}
-
-/** User-presentable message for any thrown value. */
-export function describeError(err: unknown): string {
-  if (isGeminiError(err)) return err.message;
-  return err instanceof Error ? err.message : 'Something went wrong.';
-}
+export {
+  GeminiBlockedError,
+  GeminiEmptyResponseError,
+  GeminiError,
+  GeminiHttpError,
+  GeminiTruncatedError,
+  KeyLockedError,
+  describeError,
+  isGeminiError,
+  type GeminiErrorCode,
+} from './aiErrors';
 
 // ---------------------------------------------------------------- types
 
@@ -143,9 +92,9 @@ function requireKey(override?: string): string {
   const given = safeTrim(override);
   if (given) return given;
   if (getProxy().url) return '';
-  const key = safeTrim(getApiKey());
+  const key = safeTrim(getApiKey('gemini'));
   if (key) return key;
-  if (getVaultSnapshot().hasVault) throw new KeyLockedError();
+  if (getVaultSnapshot('gemini').hasVault) throw new KeyLockedError();
   throw new GeminiError('MISSING_KEY', 'No Gemini API key is configured. Add one in Settings, AI Configuration.');
 }
 
@@ -285,7 +234,7 @@ function reportSuccess(model: string, latencyMs: number): void {
 }
 
 async function resolveModel(opts: GenerateOptions): Promise<{ model: string; temperature: number; fallbackModels: string[] }> {
-  const settings = await getAiSettings();
+  const settings = await getAiSettings('gemini');
   const model = opts.model ?? (opts.feature ? settings.featureModels[opts.feature] : undefined) ?? settings.defaultModel;
   const fallbackModels = opts.model ? [] : settings.fallbackModels.filter((candidate) => candidate !== model);
   return { model, temperature: opts.temperature ?? settings.temperature, fallbackModels };
@@ -357,6 +306,8 @@ function usageOf(raw: RawResponse): GenerateResult['usage'] {
 
 /** Single-shot text generation. */
 export async function generateText(prompt: Prompt, opts: GenerateOptions = {}): Promise<GenerateResult> {
+  const other = getActiveProvider();
+  if (other !== 'gemini') return providerGenerateText(other, prompt, opts);
   const apiKey = requireKey();
   const { model, temperature, fallbackModels } = await resolveModel(opts);
   const started = performance.now();
@@ -386,6 +337,8 @@ export async function generateText(prompt: Prompt, opts: GenerateOptions = {}): 
 
 /** Generation constrained to JSON, parsed and returned as T. Pass `responseSchema` for best results. */
 export async function generateJson<T = unknown>(prompt: Prompt, opts: GenerateOptions = {}): Promise<{ data: T; repaired?: boolean } & GenerateResult> {
+  const other = getActiveProvider();
+  if (other !== 'gemini') return providerGenerateJson<T>(other, prompt, opts);
   const apiKey = requireKey();
   const { model, temperature, fallbackModels } = await resolveModel(opts);
   const started = performance.now();
@@ -464,6 +417,8 @@ export async function streamText(
   opts: GenerateOptions,
   onChunk: (delta: string, fullText: string) => void,
 ): Promise<GenerateResult> {
+  const other = getActiveProvider();
+  if (other !== 'gemini') return providerStreamText(other, prompt, opts, onChunk);
   const apiKey = requireKey();
   const { model, temperature } = await resolveModel(opts);
   const started = performance.now();
@@ -549,7 +504,8 @@ export interface GeminiModelInfo {
 }
 
 /** Returns the Gemini models currently exposed to this API key that support generateContent. */
-export async function listAvailableModels(apiKeyOverride?: string): Promise<GeminiModelInfo[]> {
+export async function listAvailableModels(apiKeyOverride?: string, provider: ProviderId = getActiveProvider()): Promise<GeminiModelInfo[]> {
+  if (provider !== 'gemini') return providerListModels(provider as OtherProvider, apiKeyOverride);
   const key = requireKey(apiKeyOverride);
   const models: GeminiModelInfo[] = [];
   let pageToken = '';
@@ -584,10 +540,12 @@ export interface ConnectionTestResult {
  * Live ping: GET /models/{model}. Validates the key and model access over a real round trip
  * without spending generation quota. Updates the header status pill when testing the saved key.
  */
-export async function testConnection(opts: { apiKey?: string; model: string; signal?: AbortSignal }): Promise<ConnectionTestResult> {
+export async function testConnection(opts: { apiKey?: string; model: string; signal?: AbortSignal; provider?: ProviderId }): Promise<ConnectionTestResult> {
+  const provider = opts.provider ?? getActiveProvider();
+  if (provider !== 'gemini') return providerTest(provider as OtherProvider, opts);
   const viaProxy = !safeTrim(opts.apiKey) && !!getProxy().url;
-  const candidate = viaProxy ? '' : safeTrim(opts.apiKey ?? getApiKey());
-  const isSavedKey = viaProxy || (candidate !== '' && candidate === getApiKey());
+  const candidate = viaProxy ? '' : safeTrim(opts.apiKey ?? getApiKey('gemini'));
+  const isSavedKey = viaProxy || (candidate !== '' && candidate === getApiKey('gemini'));
 
   if (!candidate && !viaProxy) {
     return { ok: false, model: opts.model, code: 'MISSING_KEY', message: 'Enter an API key first.' };

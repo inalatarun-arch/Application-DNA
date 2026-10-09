@@ -224,7 +224,7 @@ function FlowsView({ source }: { source: GraphSource }) {
               {scope === 'functionality' && selectedFn && (
                 <button type="button" className="btn btn-primary px-3 py-1.5" disabled={aiBusy || !apiKey} onClick={() => void generateAiFlow()}>
                   {aiBusy ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} aria-hidden />}
-                  {aiBusy ? 'Generating…' : 'Generate with Gemini'}
+                  {aiBusy ? 'Generating…' : 'Generate with AI'}
                 </button>
               )}
               <div role="group" aria-label="Zoom" className="flex items-center rounded border border-outline-variant">

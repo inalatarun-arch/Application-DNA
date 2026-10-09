@@ -140,13 +140,13 @@ export default function ExtractionReview({ open, base, initial, existing, model,
     >
       <div className="space-y-4">
         <p className="text-body-md text-on-surface-variant">
-          Nothing has been saved yet. Untick what you do not want, fix names and text, or describe the changes you want and let Gemini apply them.
+          Nothing has been saved yet. Untick what you do not want, fix names and text, or describe the changes you want and let the AI apply them.
           {' '}Extracted with {model}. Will create {stats.creates}, update {stats.updates}{stats.excluded ? `, leave out ${stats.excluded}` : ''}.
         </p>
         {truncated && (
           <p role="alert" className="flex items-start gap-2 rounded border border-error bg-error-container p-3 text-body-md text-error">
             <AlertTriangle size={16} className="mt-0.5 shrink-0" aria-hidden />
-            Gemini ran out of output space, so only the completed items were recovered. Run the extraction again with fewer or smaller files to get the rest.
+            The AI ran out of output space, so only the completed items were recovered. Run the extraction again with fewer or smaller files to get the rest.
           </p>
         )}
 
@@ -243,7 +243,7 @@ export default function ExtractionReview({ open, base, initial, existing, model,
         </ul>
 
         <div className="rounded border border-outline-variant p-3">
-          <label className="field-label" htmlFor="revise-instruction">Suggest changes to Gemini</label>
+          <label className="field-label" htmlFor="revise-instruction">Suggest changes to AI</label>
           <textarea
             id="revise-instruction"
             className="input min-h-[72px]"

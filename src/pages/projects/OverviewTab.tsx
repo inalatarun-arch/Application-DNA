@@ -71,7 +71,7 @@ export default function OverviewTab({ project, update }: Props) {
         </div>
       </Section>
 
-      <Section title="Impacted applications and modules" description="Gemini uses this scope when it reads a transcript, and the impact analysis starts from it.">
+      <Section title="Impacted applications and modules" description="The AI uses this scope when it reads a transcript, and the impact analysis starts from it.">
         <ScopePicker
           applications={applications ?? []}
           modules={modules ?? []}

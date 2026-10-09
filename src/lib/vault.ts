@@ -1,7 +1,7 @@
 /**
  * EIH API-key vault
  * -----------------------------------------------------------------------------
- * ONE Gemini key for the whole app. The key is NEVER stored in plain text and is
+ * One key per AI provider ("slot"): gemini, anthropic, openai. The key is NEVER stored in plain text and is
  * NEVER part of the source code / build output. It is encrypted in the browser
  * with AES-256-GCM before it touches storage.
  *
@@ -15,10 +15,15 @@
  * The decrypted key lives only in a JS variable (memory) while unlocked.
  */
 
-const LS_VAULT = 'eih.vault.v1';
 const DEVICE_DB = 'eih-vault';
 const DEVICE_STORE = 'keys';
-const DEVICE_KEY_ID = 'device-key-v1';
+
+/** One independent vault per provider. 'gemini' keeps the original storage names so existing keys still work. */
+export type VaultSlot = 'gemini' | 'anthropic' | 'openai';
+export const VAULT_SLOTS: VaultSlot[] = ['gemini', 'anthropic', 'openai'];
+const lsName = (slot: VaultSlot) => (slot === 'gemini' ? 'eih.vault.v1' : `eih.vault.v1.${slot}`);
+const deviceKeyId = (slot: VaultSlot) => (slot === 'gemini' ? 'device-key-v1' : `device-key-v1-${slot}`);
+const LS_VAULT = lsName('gemini');
 const AAD = new TextEncoder().encode('eih-vault-v1');
 const PBKDF2_ITERATIONS = 600_000;
 
@@ -125,23 +130,23 @@ async function idbDelete(key: string): Promise<void> {
   });
 }
 
-async function getOrCreateDeviceKey(): Promise<CryptoKey> {
-  const existing = await idbGet<CryptoKey>(DEVICE_KEY_ID);
+async function getOrCreateDeviceKey(slot: VaultSlot): Promise<CryptoKey> {
+  const existing = await idbGet<CryptoKey>(deviceKeyId(slot));
   if (existing) return existing;
   const key = await crypto.subtle.generateKey({ name: 'AES-GCM', length: 256 }, false, ['encrypt', 'decrypt']);
-  await idbPut(DEVICE_KEY_ID, key);
+  await idbPut(deviceKeyId(slot), key);
   return key;
 }
 
 /* ------------------------------ vault state ------------------------------ */
 
-let memoryKey: string | null = null;
+const memoryKeys = new Map<VaultSlot, string>();
 const listeners = new Set<() => void>();
-let snapshot: VaultState = computeState();
+const snapshots = new Map<VaultSlot, VaultState>();
 
-function readRecord(): VaultRecord | null {
+function readRecord(slot: VaultSlot = 'gemini'): VaultRecord | null {
   try {
-    const raw = localStorage.getItem(LS_VAULT);
+    const raw = localStorage.getItem(lsName(slot));
     if (!raw) return null;
     const rec = JSON.parse(raw) as VaultRecord;
     if (rec && rec.v === 1 && rec.ct && rec.iv) return rec;
@@ -151,15 +156,25 @@ function readRecord(): VaultRecord | null {
   }
 }
 
-function computeState(): VaultState {
-  const rec = readRecord();
-  return { hasVault: !!rec, unlocked: memoryKey !== null, mode: rec ? rec.mode : null };
+function computeState(slot: VaultSlot): VaultState {
+  const rec = readRecord(slot);
+  return { hasVault: !!rec, unlocked: memoryKeys.has(slot), mode: rec ? rec.mode : null };
+}
+
+function sameState(a: VaultState, b: VaultState): boolean {
+  return a.hasVault === b.hasVault && a.unlocked === b.unlocked && a.mode === b.mode;
 }
 
 function emit(): void {
-  snapshot = computeState();
+  // Keep the same object when nothing changed so useSyncExternalStore does not re-render needlessly.
+  for (const slot of VAULT_SLOTS) {
+    const next = computeState(slot);
+    const prev = snapshots.get(slot);
+    if (!prev || !sameState(prev, next)) snapshots.set(slot, next);
+  }
   listeners.forEach((l) => l());
 }
+for (const slot of VAULT_SLOTS) snapshots.set(slot, computeState(slot));
 
 /** For React's useSyncExternalStore. */
 export function subscribeVault(fn: () => void): () => void {
@@ -168,8 +183,8 @@ export function subscribeVault(fn: () => void): () => void {
     listeners.delete(fn);
   };
 }
-export function getVaultSnapshot(): VaultState {
-  return snapshot;
+export function getVaultSnapshot(slot: VaultSlot = 'gemini'): VaultState {
+  return snapshots.get(slot) ?? computeState(slot);
 }
 
 /* ------------------------------- public API ------------------------------- */
@@ -179,9 +194,9 @@ export function normalizeApiKey(raw: string): string {
 }
 
 /** Encrypt and store the key. Replaces any existing key. The key is then held in memory (unlocked). */
-export async function saveKey(apiKey: string, mode: VaultMode, passphrase?: string): Promise<void> {
+export async function saveKey(apiKey: string, mode: VaultMode, passphrase?: string, slot: VaultSlot = 'gemini', minLength = 20): Promise<void> {
   const clean = normalizeApiKey(apiKey);
-  if (clean.length < 20) throw new Error('That does not look like a valid API key.');
+  if (clean.length < minLength) throw new Error('That does not look like a valid API key.');
   const iv = randomBytes(12);
   const plain = new TextEncoder().encode(clean);
   let record: VaultRecord;
@@ -201,20 +216,20 @@ export async function saveKey(apiKey: string, mode: VaultMode, passphrase?: stri
       createdAt: new Date().toISOString(),
     };
   } else {
-    await idbDelete(DEVICE_KEY_ID); // fresh device key for each saved key
-    const key = await getOrCreateDeviceKey();
+    await idbDelete(deviceKeyId(slot)); // fresh device key for each saved key
+    const key = await getOrCreateDeviceKey(slot);
     const ct = await crypto.subtle.encrypt({ name: 'AES-GCM', iv: iv as BufferSource, additionalData: AAD }, key, plain);
     record = { v: 1, mode, iv: b64encode(iv), ct: b64encode(ct), createdAt: new Date().toISOString() };
   }
 
-  localStorage.setItem(LS_VAULT, JSON.stringify(record));
-  memoryKey = clean;
+  localStorage.setItem(lsName(slot), JSON.stringify(record));
+  memoryKeys.set(slot, clean);
   emit();
 }
 
 /** Decrypt the stored key into memory. Passphrase is required in "passphrase" mode. */
-export async function unlock(passphrase?: string): Promise<void> {
-  const rec = readRecord();
+export async function unlock(passphrase?: string, slot: VaultSlot = 'gemini'): Promise<void> {
+  const rec = readRecord(slot);
   if (!rec) throw new Error('No API key has been saved yet.');
   try {
     let key: CryptoKey;
@@ -222,7 +237,7 @@ export async function unlock(passphrase?: string): Promise<void> {
       if (!passphrase) throw new Error('Enter your passphrase.');
       key = await deriveKey(passphrase, b64decode(rec.salt as string), rec.iter ?? PBKDF2_ITERATIONS);
     } else {
-      const k = await idbGet<CryptoKey>(DEVICE_KEY_ID);
+      const k = await idbGet<CryptoKey>(deviceKeyId(slot));
       if (!k) throw new Error('The device key is missing (browser data was cleared). Please add your API key again.');
       key = k;
     }
@@ -231,7 +246,7 @@ export async function unlock(passphrase?: string): Promise<void> {
       key,
       b64decode(rec.ct) as BufferSource,
     );
-    memoryKey = new TextDecoder().decode(plain);
+    memoryKeys.set(slot, new TextDecoder().decode(plain));
     emit();
   } catch (e) {
     if (e instanceof Error && e.message && e.name !== 'OperationError') throw e;
@@ -240,39 +255,42 @@ export async function unlock(passphrase?: string): Promise<void> {
 }
 
 /** Forget the decrypted key (the encrypted copy stays stored). */
-export function lock(): void {
-  memoryKey = null;
+export function lock(slot: VaultSlot = 'gemini'): void {
+  memoryKeys.delete(slot);
   emit();
 }
 
 /** Permanently remove the encrypted key (and the device key if any). */
-export async function deleteVault(): Promise<void> {
-  memoryKey = null;
-  localStorage.removeItem(LS_VAULT);
+export async function deleteVault(slot: VaultSlot = 'gemini'): Promise<void> {
+  memoryKeys.delete(slot);
+  localStorage.removeItem(lsName(slot));
   try {
-    await idbDelete(DEVICE_KEY_ID);
+    await idbDelete(deviceKeyId(slot));
   } catch {
     /* ignore */
   }
   emit();
 }
 
-/** Used only by the Gemini client. Throws VaultLockedError when locked / missing. */
-export function getKey(): string {
-  if (memoryKey) return memoryKey;
+/** Used only by the AI client. Throws VaultLockedError when locked / missing. */
+export function getKey(slot: VaultSlot = 'gemini'): string {
+  const k = memoryKeys.get(slot);
+  if (k) return k;
   throw new VaultLockedError(
-    readRecord() ? 'The AI key is locked. Unlock it in AI Settings.' : 'No Gemini API key saved yet. Add it in AI Settings.',
+    readRecord(slot) ? 'The AI key is locked. Unlock it in AI Settings.' : 'No API key saved yet. Add it in AI Settings.',
   );
 }
 
-/** Try silent unlock for device-mode vaults (call once on app start). */
+/** Try silent unlock for device-mode vaults (call once on app start). Covers every provider. */
 export async function tryAutoUnlock(): Promise<void> {
-  const rec = readRecord();
-  if (rec && rec.mode === 'device' && !memoryKey) {
-    try {
-      await unlock();
-    } catch {
-      /* stays locked */
+  for (const slot of VAULT_SLOTS) {
+    const rec = readRecord(slot);
+    if (rec && rec.mode === 'device' && !memoryKeys.has(slot)) {
+      try {
+        await unlock(undefined, slot);
+      } catch {
+        /* stays locked */
+      }
     }
   }
 }

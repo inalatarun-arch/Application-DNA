@@ -1,5 +1,6 @@
 import { db, DB_SCHEMA_VERSION } from './db';
 import { getApiKey, setApiKey } from '@/services/apiKeyStore';
+import { PROVIDER_IDS, type ProviderId } from '@/config/providers';
 
 export const BACKUP_FORMAT = 'eih-backup';
 
@@ -10,8 +11,10 @@ export interface BackupFile {
   exportedAt: string;
   tables: Record<string, unknown[]>;
   /** Present only when the user opted in at export time. */
-  secrets?: { geminiApiKey?: string };
+  secrets?: { geminiApiKey?: string; anthropicApiKey?: string; openaiApiKey?: string };
 }
+
+const SECRET_FIELD = { gemini: 'geminiApiKey', anthropic: 'anthropicApiKey', openai: 'openaiApiKey' } as const satisfies Record<ProviderId, string>;
 
 export class BackupError extends Error {
   constructor(message: string) {
@@ -37,8 +40,14 @@ export async function buildBackup(options: { includeApiKey: boolean }): Promise<
     exportedAt: new Date().toISOString(),
     tables,
   };
-  const key = getApiKey();
-  if (options.includeApiKey && key) backup.secrets = { geminiApiKey: key };
+  if (options.includeApiKey) {
+    const secrets: NonNullable<BackupFile['secrets']> = {};
+    for (const p of PROVIDER_IDS) {
+      const key = getApiKey(p);
+      if (key) secrets[SECRET_FIELD[p]] = key;
+    }
+    if (Object.keys(secrets).length) backup.secrets = secrets;
+  }
   return backup;
 }
 
@@ -99,9 +108,15 @@ export async function readBackupFile(file: File): Promise<BackupFile> {
     tables[table.name] = rows;
   }
 
-  const secrets = isRecord(parsed.secrets) && typeof parsed.secrets.geminiApiKey === 'string'
-    ? { geminiApiKey: parsed.secrets.geminiApiKey }
-    : undefined;
+  let secrets: BackupFile['secrets'];
+  if (isRecord(parsed.secrets)) {
+    const found: NonNullable<BackupFile['secrets']> = {};
+    for (const p of PROVIDER_IDS) {
+      const v = parsed.secrets[SECRET_FIELD[p]];
+      if (typeof v === 'string' && v) found[SECRET_FIELD[p]] = v;
+    }
+    if (Object.keys(found).length) secrets = found;
+  }
 
   return {
     format: BACKUP_FORMAT,
@@ -122,6 +137,11 @@ export async function restoreBackup(backup: BackupFile, options: { restoreApiKey
       if (rows?.length) await table.bulkPut(rows);
     }
   });
-  if (options.restoreApiKey && backup.secrets?.geminiApiKey) await setApiKey(backup.secrets.geminiApiKey);
+  if (options.restoreApiKey && backup.secrets) {
+    for (const p of PROVIDER_IDS) {
+      const key = backup.secrets[SECRET_FIELD[p]];
+      if (key) await setApiKey(key, p);
+    }
+  }
   return countRows(backup);
 }
