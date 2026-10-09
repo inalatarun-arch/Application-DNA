@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 import * as XLSX from "xlsx";
-import { fileToGeminiContent, resolveFileMimeType, validateFile } from "@/lib/filePayload";
+import { fileToGeminiContent, filesToGeminiParts, resolveFileMimeType, validateFile } from "@/lib/filePayload";
 
 describe("upload validation", () => {
   test("rejects empty files", () => {
@@ -63,5 +63,13 @@ describe("file content preparation", () => {
   test("fails clearly for invalid or encrypted Office documents", async () => {
     const file = new File(["not a real Word file"], "broken.docx", { type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document" });
     await expect(fileToGeminiContent(file)).rejects.toThrow(/Could not extract text from broken.docx/i);
+  });
+
+  test("rejects combined uploads that are likely to exceed Gemini's inline request limit", async () => {
+    const files = [
+      new File([new Uint8Array(8 * 1024 * 1024)], "one.pdf", { type: "application/pdf" }),
+      new File([new Uint8Array(7 * 1024 * 1024)], "two.pdf", { type: "application/pdf" }),
+    ];
+    await expect(filesToGeminiParts(files)).rejects.toThrow(/14 MB combined/i);
   });
 });
