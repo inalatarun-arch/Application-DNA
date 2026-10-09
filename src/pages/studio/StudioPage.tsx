@@ -6,7 +6,7 @@ import {
   DEFAULT_APPROVAL_MATRIX, buildRtm, createDocument, decideDocument, ensureDefaultTemplates, restoreDocumentVersion,
   saveDocumentVersion, saveGeneratedStories, submitDocument,
 } from '@/db/delivery';
-import type { DeliveryApproval, DeliveryApprovalRole, DeliveryDocument, DeliveryDocumentType, DeliveryDocumentVersion, DeliveryStory, RequirementTrace } from '@/db/types';
+import type { DeliveryApproval, DeliveryApprovalRole, DeliveryDocument, DeliveryDocumentType, DeliveryDocumentVersion, DeliveryStory, Requirement, RequirementTrace } from '@/db/types';
 import PageHeader from '@/components/ui/PageHeader';
 import { MarkdownPreview } from '@/components/MarkdownPreview';
 import { useApiKey } from '@/hooks/useApiKey';
@@ -71,7 +71,7 @@ export default function StudioPage() {
   const fddDoc = docs.find((d) => d.type === 'frd');
   const approvals = useLiveQuery(() => (doc ? db.deliveryApprovals.where('documentId').equals(doc.id).sortBy('createdAt') : Promise.resolve([] as DeliveryApproval[])), [doc?.id], [] as DeliveryApproval[]);
   const versions = useLiveQuery(() => (doc ? db.deliveryDocumentVersions.where('documentId').equals(doc.id).sortBy('version').then((v) => v.reverse()) : Promise.resolve([] as DeliveryDocumentVersion[])), [doc?.id, doc?.version], [] as DeliveryDocumentVersion[]);
-  const reqs = useLiveQuery(() => (projectId ? db.requirements.where('projectId').equals(projectId).toArray() : Promise.resolve([])), [projectId], []);
+  const reqs = useLiveQuery(() => (projectId ? db.requirements.where('projectId').equals(projectId).toArray() : Promise.resolve([] as Requirement[])), [projectId], [] as Requirement[]);
   const stories = useLiveQuery(() => (projectId ? db.deliveryStories.where('projectId').equals(projectId).toArray() : Promise.resolve([] as DeliveryStory[])), [projectId], [] as DeliveryStory[]);
   const rtm = useLiveQuery(() => (projectId ? buildRtm(projectId) : Promise.resolve([] as RequirementTrace[])), [projectId], [] as RequirementTrace[]);
   const project = projects?.find((p) => p.id === projectId);

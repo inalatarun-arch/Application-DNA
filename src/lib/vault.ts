@@ -285,7 +285,7 @@ export interface LegacyKeyHit {
   preview: string; // masked, never the full key
 }
 
-const KEY_PATTERN = /(AIza[0-9A-Za-z_\-]{30,}|AQ\.[0-9A-Za-z_\-]{20,})/;
+const KEY_PATTERN = /(AIza[0-9A-Za-z_-]{30,}|AQ\.[0-9A-Za-z_-]{20,})/;
 
 function mask(v: string): string {
   const m = v.match(KEY_PATTERN);
