@@ -62,7 +62,9 @@ export default function ApplicationFormModal({ open, application, onClose, onSav
         await updateApplication(application.id, form);
         onSaved?.({ ...application, ...form });
       } else {
-        onSaved?.(await createApplication(form));
+        // Await first: `onSaved?.(await create(...))` skips the create entirely when no onSaved is passed.
+        const created = await createApplication(form);
+        onSaved?.(created);
       }
       onClose();
     } catch (err) {
