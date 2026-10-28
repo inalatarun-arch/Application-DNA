@@ -5,6 +5,7 @@ import { MODELS, resolveModel } from './config.mjs';
 import { claudeVersion, runClaude } from './engine.mjs';
 import { BridgeError, chunk, completion, errorBody, finishReason, parseChatRequest, usageOf } from './translate.mjs';
 
+const MAX_WAITING = 50;
 const LOCAL_HOST = /^(localhost|127\.0\.0\.1|\[::1\])(:\d+)?$/i;
 const LOCAL_ORIGIN = /^https?:\/\/(localhost|127\.0\.0\.1|\[::1\])(:\d+)?$/i;
 
@@ -13,6 +14,7 @@ class Gate {
   constructor(limit) { this.limit = limit; this.active = 0; this.waiting = []; }
   async enter(signal) {
     if (this.active < this.limit) { this.active++; return; }
+    if (this.waiting.length >= MAX_WAITING) throw new BridgeError(429, 'The bridge is busy. Try again in a moment.', 'rate_limit_error', 'busy');
     await new Promise((resolve, reject) => {
       const w = { resolve, reject };
       this.waiting.push(w);
@@ -109,7 +111,8 @@ export function createBridge(cfg, log = () => undefined) {
 
   const server = http.createServer(async (req, res) => {
     const origin = req.headers.origin;
-    const cors = origin ? {
+    // Only an allowed site gets CORS headers, so a refused page cannot even read the refusal.
+    const cors = origin && allowedOrigin(origin) ? {
       'Access-Control-Allow-Origin': origin,
       Vary: 'Origin',
       'Access-Control-Allow-Private-Network': 'true',
@@ -117,6 +120,8 @@ export function createBridge(cfg, log = () => undefined) {
     try {
       // A page on another site cannot read localhost through a DNS-rebinding trick if the Host header is checked.
       if (!LOCAL_HOST.test(req.headers.host ?? '')) throw new BridgeError(403, 'Requests must be made to localhost.', 'permission_error');
+      // Browsers label cross-site requests; refuse them even when a header is missing (defence in depth).
+      if (!origin && req.headers['sec-fetch-site'] === 'cross-site') throw new BridgeError(403, 'Cross-site requests are not allowed.', 'permission_error', 'origin_not_allowed');
       if (origin && !allowedOrigin(origin)) {
         throw new BridgeError(403, `The site ${origin} is not allowed to use this bridge. Start the bridge with EIH_BRIDGE_ORIGINS=${origin}`, 'permission_error', 'origin_not_allowed');
       }

@@ -77,6 +77,9 @@ test('rejects foreign sites and bad bodies, allows configured and localhost orig
   assert.equal((await fetch(`${base}/models`, { headers: { Origin: 'https://evil.example' } })).status, 403);
   assert.equal((await fetch(`${base}/models`, { headers: { Origin: 'https://me.github.io' } })).status, 200);
   assert.equal((await fetch(`${base}/models`, { headers: { Origin: 'http://localhost:5173' } })).headers.get('access-control-allow-origin'), 'http://localhost:5173');
+  const refused = await fetch(`${base}/models`, { headers: { Origin: 'https://evil.example' } });
+  assert.equal(refused.headers.get('access-control-allow-origin'), null);
+  assert.equal((await fetch(`${base}/models`, { headers: { 'Sec-Fetch-Site': 'cross-site' } })).status, 403);
   assert.equal((await ask('x', { messages: [] })).status, 400);
   const bad = await fetch(`${base}/chat/completions`, { method: 'POST', body: '{nope' });
   assert.equal(bad.status, 400);

@@ -60,3 +60,6 @@ local devices the first time. Allow it. Firefox and Safari may block it from an 
 ## Tests
 
 `npm run test:bridge` runs the bridge against a fake `claude` binary, so it needs no login.
+
+Note: any page served from `localhost` (any port) is allowed, because that is where `npm run dev` runs. Do not open untrusted
+local web apps while the bridge is running. Set `EIH_BRIDGE_TOKEN` if you want to rule that out.

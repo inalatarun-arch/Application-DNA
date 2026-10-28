@@ -97,7 +97,7 @@ export async function runClaude(cfg, job, { onText, signal } = {}) {
         lines.forEach(handle);
       });
       child.stderr.setEncoding('utf8');
-      child.stderr.on('data', (d) => { err = (err + d).slice(-4000); });
+      child.stderr.on('data', (d) => { err = (err + d).slice(-500); });
       child.on('error', (e) => {
         done(reject, e.code === 'ENOENT'
           ? new BridgeError(503, `Could not start "${cfg.claudeBin}". Install Claude Code (https://claude.com/claude-code) or set EIH_CLAUDE_BIN to its path.`, 'api_error', 'claude_not_found')
