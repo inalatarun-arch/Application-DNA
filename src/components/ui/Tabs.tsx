@@ -1,9 +1,12 @@
+import type { LucideIcon } from 'lucide-react';
 import { cn } from '@/lib/cn';
+import TabStrip, { TAB_ACTIVE, TAB_CLASS, TAB_IDLE } from './TabStrip';
 
 export interface TabItem<T extends string> {
   id: T;
   label: string;
   count?: number;
+  icon?: LucideIcon;
 }
 
 interface Props<T extends string> {
@@ -15,7 +18,7 @@ interface Props<T extends string> {
 
 export default function Tabs<T extends string>({ tabs, active, onChange, label }: Props<T>) {
   return (
-    <div role="tablist" aria-label={label} className="flex gap-1 overflow-x-auto border-b border-outline-variant">
+    <TabStrip role="tablist" label={label} measureKey={tabs.map((t) => `${t.id}${t.count ?? ''}`).join('|')}>
       {tabs.map((t) => {
         const selected = t.id === active;
         return (
@@ -27,16 +30,14 @@ export default function Tabs<T extends string>({ tabs, active, onChange, label }
             aria-selected={selected}
             aria-controls={`panel-${t.id}`}
             onClick={() => onChange(t.id)}
-            className={cn(
-              '-mb-px whitespace-nowrap border-b-2 px-4 py-2 text-body-md transition-colors',
-              selected ? 'border-primary font-semibold text-on-surface' : 'border-transparent text-on-surface-variant hover:text-on-surface',
-            )}
+            className={cn(TAB_CLASS, selected ? TAB_ACTIVE : TAB_IDLE)}
           >
+            {t.icon && <t.icon size={16} aria-hidden />}
             {t.label}
-            {t.count !== undefined && <span className="ml-2 rounded border border-outline-variant px-1.5 text-label-md font-normal text-on-surface-variant">{t.count}</span>}
+            {t.count !== undefined && <span className="rounded-full bg-surface-container px-1.5 text-label-md font-normal tabular-nums text-on-surface-variant">{t.count}</span>}
           </button>
         );
       })}
-    </div>
+    </TabStrip>
   );
 }

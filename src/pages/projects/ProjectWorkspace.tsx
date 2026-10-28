@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { ChevronRight, FolderKanban, Trash2 } from 'lucide-react';
+import { FolderKanban, Trash2 } from 'lucide-react';
 import { db } from '@/db/db';
 import { countProjectContents, deleteProject, labelOf, PROJECT_STATUSES, type ProjectStats } from '@/db/projects';
 import type { Project, ProjectStatus } from '@/db/types';
@@ -9,6 +9,10 @@ import { useAutosave } from '@/hooks/useAutosave';
 import SaveStatus from '@/components/ui/SaveStatus';
 import StatusBadge from '@/components/ui/StatusBadge';
 import Tabs from '@/components/ui/Tabs';
+import TabPanel from '@/components/ui/TabPanel';
+import TitleInput from '@/components/ui/TitleInput';
+import Breadcrumbs from '@/components/ui/Breadcrumbs';
+import StatStrip from '@/components/ui/StatStrip';
 import ConfirmModal from '@/components/ui/ConfirmModal';
 import EmptyState from '@/components/ui/EmptyState';
 import OverviewTab from './OverviewTab';
@@ -47,12 +51,23 @@ function ProjectEditor({ project }: { project: Project }) {
   const tab: TabId = (TAB_IDS as readonly string[]).includes(requested ?? '') ? (requested as TabId) : 'overview';
 
   const counts = useLiveQuery(async () => {
-    const [meetings, requirements, review] = await Promise.all([
+    const [meetings, requirements, review, reqs, tests, defects] = await Promise.all([
       db.meetings.where('projectId').equals(project.id).count(),
       db.requirements.where('projectId').equals(project.id).count(),
       db.candidates.where('projectId').equals(project.id).filter((c) => c.decision === 'pending' || c.decision === 'accepted').count(),
+      db.requirements.where('projectId').equals(project.id).toArray(),
+      db.testCases.where('projectId').equals(project.id).toArray(),
+      db.defects.where('projectId').equals(project.id).toArray(),
     ]);
-    return { meetings, requirements, review };
+    return {
+      meetings,
+      requirements,
+      review,
+      approved: reqs.filter((r) => r.status === 'approved').length,
+      tests: tests.length,
+      passed: tests.filter((t) => t.status === 'passed').length,
+      openDefects: defects.filter((d) => d.status === 'open' || d.status === 'in-progress').length,
+    };
   }, [project.id]);
 
   const selectTab = (id: TabId, extra?: Record<string, string>) =>
@@ -69,17 +84,12 @@ function ProjectEditor({ project }: { project: Project }) {
 
   return (
     <div className="space-y-6">
-      <nav aria-label="Location" className="flex flex-wrap items-center gap-1 text-body-md">
-        <Link to="/projects" className="text-on-surface-variant hover:text-on-surface hover:underline">Projects</Link>
-        <ChevronRight size={14} aria-hidden className="text-outline" />
-        <span className="font-semibold" aria-current="page">{draft.name || 'Untitled project'}</span>
-      </nav>
+      <Breadcrumbs items={[{ label: 'Projects', to: '/projects' }, { label: draft.name || 'Untitled project' }]} />
 
       <header className="flex flex-wrap items-start justify-between gap-4">
         <div className="min-w-0 flex-1">
-          <label htmlFor="project-name" className="sr-only">Project name</label>
-          <input id="project-name" className="input text-headline-md" value={draft.name} onChange={(e) => update({ name: e.target.value })} placeholder="Project name" />
-          <div className="mt-2 flex flex-wrap items-center gap-3">
+          <TitleInput id="project-name" label="Project name" value={draft.name} onChange={(e) => update({ name: e.target.value })} placeholder="Project name" />
+          <div className="mt-1 flex flex-wrap items-center gap-3">
             <SaveStatus state={state} />
             <StatusBadge status={draft.status} label={labelOf(PROJECT_STATUSES, draft.status)} />
           </div>
@@ -98,6 +108,17 @@ function ProjectEditor({ project }: { project: Project }) {
         </div>
       </header>
 
+      <StatStrip
+        label="Project progress"
+        stats={[
+          { label: 'Meetings', value: counts?.meetings },
+          { label: 'Backlog requirements', value: counts?.requirements },
+          { label: 'Approved', value: counts?.approved, tone: counts && counts.approved > 0 ? 'good' : 'default' },
+          { label: 'Tests passing', value: counts?.passed, tone: counts && counts.tests > 0 && counts.passed === counts.tests ? 'good' : 'default' },
+          { label: 'Open defects', value: counts?.openDefects, tone: counts && counts.openDefects > 0 ? 'bad' : 'default' },
+        ]}
+      />
+
       <Tabs<TabId>
         label="Project workspace"
         active={tab}
@@ -112,14 +133,14 @@ function ProjectEditor({ project }: { project: Project }) {
         ]}
       />
 
-      <div role="tabpanel" id={`panel-${tab}`} aria-labelledby={`tab-${tab}`}>
+      <TabPanel id={tab}>
         {tab === 'overview' && <OverviewTab project={draft} update={update} />}
         {tab === 'notes' && <MeetingNotesTab project={draft} onReview={() => selectTab('requirements')} />}
         {tab === 'requirements' && <ExtractedRequirementsTab project={draft} onOpenMeeting={(id) => selectTab('notes', { meeting: id })} />}
         {tab === 'impact' && <ImpactTab project={draft} />}
         {tab === 'flow' && <ProjectFlowTab project={draft} />}
         {tab === 'deliverables' && <DeliverablesTab project={draft} />}
-      </div>
+      </TabPanel>
 
       <ConfirmModal
         open={!!deleting}

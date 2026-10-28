@@ -1,8 +1,11 @@
+import { useState } from 'react';
 import { Link, Outlet, useMatch, useParams } from 'react-router-dom';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { Blocks, ChevronRight } from 'lucide-react';
+import { Blocks, ChevronDown, FolderTree } from 'lucide-react';
+import { cn } from '@/lib/cn';
 import { db } from '@/db/db';
 import EmptyState from '@/components/ui/EmptyState';
+import Breadcrumbs, { type Crumb } from '@/components/ui/Breadcrumbs';
 import StructureTree from './StructureTree';
 import type { AppContext } from './appContext';
 import PageSkeleton from '@/components/ui/Skeleton';
@@ -15,6 +18,7 @@ export default function ApplicationWorkspace() {
   const techMatch = useMatch('/applications/:appId/technical');
   const componentMatch = useMatch('/applications/:appId/technical/:componentId');
   const componentId = componentMatch?.params.componentId;
+  const [treeOpen, setTreeOpen] = useState(false);
 
   const app = useLiveQuery(() => db.applications.get(appId).then((a) => a ?? null), [appId]);
   const modules = useLiveQuery(() => db.modules.where('applicationId').equals(appId).toArray(), [appId]);
@@ -36,7 +40,7 @@ export default function ApplicationWorkspace() {
   const mod = modules.find((m) => m.id === (screen?.moduleId ?? moduleMatch?.params.moduleId));
   const base = `/applications/${app.id}`;
 
-  const crumbs: Array<{ label: string; to?: string }> = [
+  const crumbs: Crumb[] = [
     { label: 'Applications', to: '/applications' },
     { label: app.name, to: screen || mod || techMatch || componentMatch ? base : undefined },
   ];
@@ -51,17 +55,17 @@ export default function ApplicationWorkspace() {
 
   return (
     <div>
-      <nav aria-label="Location" className="mb-4 flex flex-wrap items-center gap-1 text-body-md">
-        {crumbs.map((c, i) => (
-          <span key={`${c.label}-${i}`} className="flex items-center gap-1">
-            {i > 0 && <ChevronRight size={14} aria-hidden className="text-outline" />}
-            {c.to ? <Link to={c.to} className="text-on-surface-variant hover:text-on-surface hover:underline">{c.label}</Link> : <span className="font-semibold" aria-current="page">{c.label}</span>}
-          </span>
-        ))}
-      </nav>
+      <div className="mb-4"><Breadcrumbs items={crumbs} /></div>
       <div className="grid gap-6 lg:grid-cols-[280px_minmax(0,1fr)]">
-        <aside>
-          <StructureTree app={app} modules={modules} screens={screens} />
+        <aside className="lg:sticky lg:top-0 lg:self-start">
+          {/* On narrow screens the tree folds away so the page itself is the first thing you see. */}
+          <button type="button" aria-expanded={treeOpen} onClick={() => setTreeOpen((o) => !o)} className="btn btn-secondary w-full justify-between lg:hidden">
+            <span className="flex items-center gap-2"><FolderTree size={16} aria-hidden /> Structure</span>
+            <ChevronDown size={16} aria-hidden className={cn('transition-transform duration-200', treeOpen && 'rotate-180')} />
+          </button>
+          <div className={cn('mt-3 lg:mt-0 lg:block', !treeOpen && 'hidden')}>
+            <StructureTree app={app} modules={modules} screens={screens} />
+          </div>
         </aside>
         <div className="min-w-0">
           <Outlet context={context} />

@@ -16,6 +16,15 @@ const STYLES: Record<string, string> = {
   high: 'border-warning/40 bg-warning-container text-warning',
   medium: 'border-outline text-on-surface-variant',
   low: NEUTRAL,
+  critical: 'border-error/40 bg-error-container text-error',
+  passed: 'border-success/40 bg-success-container text-success',
+  failed: 'border-error/40 bg-error-container text-error',
+  blocked: 'border-warning/40 bg-warning-container text-warning',
+  'not-run': NEUTRAL,
+  open: 'border-error/40 bg-error-container text-error',
+  'in-progress': 'border-primary/40 bg-primary-container text-on-surface',
+  resolved: 'border-success/40 bg-success-container text-success',
+  closed: NEUTRAL,
 };
 
 export default function StatusBadge({ status, label }: { status: string; label: string }) {

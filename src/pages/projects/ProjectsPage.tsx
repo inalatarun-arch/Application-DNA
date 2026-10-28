@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { FolderKanban, Plus, Search } from 'lucide-react';
@@ -11,7 +11,9 @@ import StatusBadge from '@/components/ui/StatusBadge';
 import Chip from '@/components/ui/Chip';
 import { formatDateTime } from '@/lib/format';
 import ProjectFormModal from './ProjectFormModal';
-import PageSkeleton from '@/components/ui/Skeleton';
+import { CardGridSkeleton } from '@/components/ui/Skeleton';
+import StatStrip from '@/components/ui/StatStrip';
+import { useReveal } from '@/lib/motion';
 
 function tally(keys: unknown[]): Map<string, number> {
   const m = new Map<string, number>();
@@ -70,6 +72,8 @@ export default function ProjectsPage() {
   }, [data]);
 
   const loading = data === undefined;
+  const listRef = useRef<HTMLUListElement>(null);
+  useReveal(listRef, '[data-card]', { deps: [loading], y: 12, stagger: 0.05 });
   const empty = !loading && data.projects.length === 0;
 
   return (
@@ -94,19 +98,17 @@ export default function ProjectsPage() {
         </EmptyState>
       ) : (
         <>
-          <section aria-label="Totals" className="mb-6 grid grid-cols-2 gap-4 lg:grid-cols-4">
-            {[
-              ['Active projects', totals.active],
-              ['Requirements in backlogs', totals.requirements],
-              ['Suggestions awaiting review', totals.pending],
-              ['Open action items', totals.actions],
-            ].map(([label, value]) => (
-              <div key={label as string} className="card p-4">
-                <p className="text-label-md text-on-surface-variant">{label}</p>
-                <p className="mt-1 text-headline-lg">{loading ? '–' : value}</p>
-              </div>
-            ))}
-          </section>
+          <div className="mb-6">
+            <StatStrip
+              label="Totals"
+              stats={[
+                { label: 'Active projects', value: loading ? undefined : totals.active },
+                { label: 'Requirements in backlogs', value: loading ? undefined : totals.requirements },
+                { label: 'Suggestions awaiting review', value: loading ? undefined : totals.pending, tone: !loading && totals.pending > 0 ? 'bad' : 'default' },
+                { label: 'Open action items', value: loading ? undefined : totals.actions },
+              ]}
+            />
+          </div>
 
           <div className="mb-4 flex flex-wrap items-center gap-2">
             <div className="relative min-w-[220px] flex-1">
@@ -120,16 +122,16 @@ export default function ProjectsPage() {
           </div>
 
           {loading ? (
-            <PageSkeleton />
+            <CardGridSkeleton count={3} />
           ) : filtered.length === 0 ? (
             <EmptyState icon={Search} title="No projects match" description="Try a different search or status." />
           ) : (
-            <ul className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+            <ul ref={listRef} className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
               {filtered.map((p) => {
                 const apps = (p.applicationIds ?? []).map((id) => data.appName.get(id)).filter((n): n is string => !!n);
                 return (
-                  <li key={p.id}>
-                    <article className="card relative flex h-full flex-col gap-3 transition-colors hover:border-outline">
+                  <li key={p.id} data-card>
+                    <article className="card card-interactive relative flex h-full flex-col gap-3">
                       <div className="flex items-start justify-between gap-2">
                         <h2 className="min-w-0 text-headline-md">
                           <Link to={`/projects/${p.id}`} className="after:absolute after:inset-0">{p.name || 'Untitled project'}</Link>

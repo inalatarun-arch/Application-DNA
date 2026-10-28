@@ -606,6 +606,8 @@ const GraphCanvas = forwardRef<GraphCanvasHandle, Props>(function GraphCanvas(pr
   useEffect(
     () => () => {
       if (raf.current) cancelAnimationFrame(raf.current);
+      // Reset the flag too, or schedule() would think a frame is still pending and never draw again (React StrictMode remounts).
+      raf.current = 0;
       simRef.current?.stop();
     },
     [],
