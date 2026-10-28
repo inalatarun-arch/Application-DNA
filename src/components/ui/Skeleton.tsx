@@ -19,3 +19,20 @@ export default function PageSkeleton() {
     </div>
   );
 }
+
+/** Card grid placeholder that matches the Applications grid, so the layout does not jump when data arrives. */
+export function CardGridSkeleton({ count = 6 }: { count?: number }) {
+  return (
+    <div role="status" aria-label="Loading" className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+      {Array.from({ length: count }, (_, i) => (
+        <div key={i} className="card space-y-3">
+          <Skeleton className="h-5 w-2/3" />
+          <Skeleton className="h-4 w-1/3" />
+          <Skeleton className="h-4 w-full" />
+          <Skeleton className="h-4 w-4/5" />
+          <div className="flex gap-1.5 pt-1"><Skeleton className="h-5 w-14" /><Skeleton className="h-5 w-16" /><Skeleton className="h-5 w-12" /></div>
+        </div>
+      ))}
+    </div>
+  );
+}

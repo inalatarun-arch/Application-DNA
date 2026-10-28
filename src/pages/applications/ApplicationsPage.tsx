@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { Blocks, FileUp, LayoutGrid, Pencil, Plus, Search, Table2, Trash2 } from 'lucide-react';
@@ -18,7 +18,9 @@ import ApplicationsTabs from './ApplicationsTabs';
 import ApplicationFormModal from './ApplicationFormModal';
 import BulkImportModal from './BulkImportModal';
 import type { InventoryImportResult } from '@/db/inventoryImport';
-import PageSkeleton from '@/components/ui/Skeleton';
+import { CardGridSkeleton } from '@/components/ui/Skeleton';
+import { useReveal } from '@/lib/motion';
+import { plural } from '@/lib/plural';
 
 type View = 'grid' | 'table';
 
@@ -38,6 +40,7 @@ export default function ApplicationsPage() {
   const [seeding, setSeeding] = useState(false);
   const [importing, setImporting] = useState(false);
   const [notice, setNotice] = useState('');
+  const listRef = useRef<HTMLDivElement>(null);
 
   const imported = (r: InventoryImportResult, details?: string) => setNotice(`Import finished: ${r.created} application${r.created === 1 ? '' : 's'} created, ${r.updated} existing updated, ${r.modulesAdded} module${r.modulesAdded === 1 ? '' : 's'} added${r.skipped ? `, ${r.skipped} skipped` : ''}.${details ? ` ${details}` : ''}`);
 
@@ -84,6 +87,8 @@ export default function ApplicationsPage() {
   const hasFilters = query !== '' || tier !== 'all' || domain !== 'all';
   const loading = data === undefined;
   const empty = !loading && data.apps.length === 0;
+  // Cards rise in once when data first arrives or the view switches; typing in the filter should not replay it.
+  useReveal(listRef, '[data-card]', { deps: [loading, view, empty], y: 12, stagger: 0.04 });
 
   return (
     <>
@@ -103,9 +108,10 @@ export default function ApplicationsPage() {
           </div>
         }
       />
-      {notice && <p role="status" className="mb-4 flex items-start justify-between gap-3 rounded border border-outline-variant bg-surface-low p-3 text-body-md">{notice}<button type="button" className="underline" onClick={() => setNotice('')}>Dismiss</button></p>}
+      {notice && <p role="status" className="mb-4 flex items-start justify-between gap-3 rounded border border-success/40 bg-success-container p-3 text-body-md text-success">{notice}<button type="button" className="underline" onClick={() => setNotice('')}>Dismiss</button></p>}
       <ApplicationsTabs />
 
+      <div ref={listRef}>
       {empty ? (
         <EmptyState icon={Blocks} title="No applications yet" description="Add the first application you want to document, or load a small sample catalog to explore how the pieces fit together.">
           <button type="button" className="btn btn-primary" onClick={() => setForm({ open: true })}>
@@ -145,7 +151,7 @@ export default function ApplicationsPage() {
           </div>
 
           {loading ? (
-            <PageSkeleton />
+            <CardGridSkeleton />
           ) : filtered.length === 0 ? (
             <EmptyState icon={Search} title="No applications match" description={hasFilters ? 'Try a different search or clear the filters.' : undefined}>
               <button type="button" className="btn btn-secondary" onClick={() => { setQuery(''); setTier('all'); setDomain('all'); }}>Clear filters</button>
@@ -155,11 +161,11 @@ export default function ApplicationsPage() {
               {filtered.map((app) => {
                 const c = counts(app.id);
                 return (
-                  <li key={app.id}>
-                    <article className="card relative flex h-full flex-col gap-3 transition-colors hover:border-outline">
+                  <li key={app.id} data-card>
+                    <article className="card card-interactive relative flex h-full flex-col gap-3">
                       <div className="flex items-start justify-between gap-2">
                         <div className="min-w-0">
-                          <h2 className="truncate text-headline-md">
+                          <h2 className="line-clamp-2 text-headline-md">
                             <Link to={`/applications/${app.id}`} className="after:absolute after:inset-0">{app.name}</Link>
                           </h2>
                           <p className="truncate text-body-md text-on-surface-variant">{[app.vendor, app.domain].filter(Boolean).join(' · ')}</p>
@@ -175,7 +181,11 @@ export default function ApplicationsPage() {
                       )}
                       <div className="mt-auto flex items-end justify-between gap-2 border-t border-outline-variant pt-3">
                         <div className="min-w-0 text-label-md font-normal text-on-surface-variant">
-                          <p>{c.modules} modules · {c.screens} screens · {c.functionalities} functionalities</p>
+                          <p className="flex flex-wrap gap-x-2.5">
+                            <span className="whitespace-nowrap">{plural(c.modules, 'module')}</span>
+                            <span className="whitespace-nowrap">{plural(c.screens, 'screen')}</span>
+                            <span className="whitespace-nowrap">{plural(c.functionalities, 'functionality', 'functionalities')}</span>
+                          </p>
                           {app.businessOwner && <p className="truncate">Owner: {app.businessOwner}</p>}
                         </div>
                         <div className="relative z-10 flex shrink-0">
@@ -189,12 +199,12 @@ export default function ApplicationsPage() {
               })}
             </ul>
           ) : (
-            <div className="overflow-x-auto rounded border border-outline-variant bg-surface-lowest">
-              <table className="w-full min-w-[860px] text-left text-body-md">
+            <div data-card className="overflow-x-auto rounded-lg border border-outline-variant bg-surface-lowest">
+              <table className="w-full min-w-[1080px] text-left text-body-md">
                 <thead className="border-b border-outline-variant bg-surface-low text-label-md text-on-surface-variant">
                   <tr>
                     {['Application', 'Platform', 'Domain', 'Tier', 'Business owner', 'Modules', 'Screens', 'Functionalities', 'Updated', ''].map((h, i) => (
-                      <th key={i} scope="col" className="px-4 py-2 font-medium">{h || <span className="sr-only">Actions</span>}</th>
+                      <th key={i} scope="col" className={cn('px-4 py-2 font-medium', i === 0 && 'sticky left-0 bg-surface-low')}>{h || <span className="sr-only">Actions</span>}</th>
                     ))}
                   </tr>
                 </thead>
@@ -202,8 +212,8 @@ export default function ApplicationsPage() {
                   {filtered.map((app) => {
                     const c = counts(app.id);
                     return (
-                      <tr key={app.id} className="hover:bg-surface-low">
-                        <td className="px-4 py-3 font-semibold"><Link to={`/applications/${app.id}`} className="hover:underline">{app.name}</Link></td>
+                      <tr key={app.id} className="group hover:bg-surface-low">
+                        <td className="sticky left-0 bg-surface-lowest px-4 py-3 group-hover:bg-surface-low font-semibold"><Link to={`/applications/${app.id}`} className="hover:underline">{app.name}</Link></td>
                         <td className="px-4 py-3 text-on-surface-variant">{app.vendor || '-'}</td>
                         <td className="px-4 py-3 text-on-surface-variant">{app.domain || '-'}</td>
                         <td className="px-4 py-3"><TierBadge tier={app.criticalTier} /></td>
@@ -225,6 +235,7 @@ export default function ApplicationsPage() {
           )}
         </>
       )}
+      </div>
 
       <BulkImportModal open={importing} onClose={() => setImporting(false)} onImported={imported} />
       <ApplicationFormModal open={form.open} application={form.app} onClose={() => setForm({ open: false })} />

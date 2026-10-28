@@ -1,20 +1,21 @@
 import { cn } from '@/lib/cn';
 
-/** Grayscale status chips: the stronger the outline or fill, the further along. */
+/** Status chips use hue for meaning (green done, amber needs a decision, red blocked, teal in progress) and the label for everything else. */
+const NEUTRAL = 'border-outline-variant text-on-surface-variant';
 const STYLES: Record<string, string> = {
-  draft: 'border-outline-variant text-on-surface-variant',
-  active: 'border-primary text-on-surface',
-  'on-hold': 'border-outline border-dashed text-on-surface-variant',
-  completed: 'border-primary bg-primary text-on-primary',
-  cancelled: 'border-outline-variant text-on-surface-variant line-through',
-  'in-review': 'border-outline text-on-surface',
-  approved: 'border-primary bg-primary text-on-primary',
-  rejected: 'border-outline-variant text-on-surface-variant line-through',
-  processed: 'border-primary text-on-surface',
-  error: 'border-error text-error',
-  high: 'border-primary text-on-surface',
+  draft: NEUTRAL,
+  active: 'border-primary/40 bg-primary-container text-on-surface',
+  'on-hold': 'border-warning/40 bg-warning-container text-warning',
+  completed: 'border-success/40 bg-success-container text-success',
+  cancelled: `${NEUTRAL} line-through`,
+  'in-review': 'border-warning/40 bg-warning-container text-warning',
+  approved: 'border-success/40 bg-success-container text-success',
+  rejected: 'border-error/40 bg-error-container text-error',
+  processed: 'border-primary/40 bg-primary-container text-on-surface',
+  error: 'border-error/40 bg-error-container text-error',
+  high: 'border-warning/40 bg-warning-container text-warning',
   medium: 'border-outline text-on-surface-variant',
-  low: 'border-outline-variant text-on-surface-variant',
+  low: NEUTRAL,
 };
 
 export default function StatusBadge({ status, label }: { status: string; label: string }) {

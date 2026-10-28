@@ -4,6 +4,7 @@ import { AppWindow, Boxes, Bug, ClipboardList, Database, FolderKanban, ListCheck
 import { NAV_ITEMS } from '@/config/nav';
 import { searchAllEntities, type SearchHit } from '@/config/universalSearch';
 import { cn } from '@/lib/cn';
+import { useDialogIn } from '@/lib/motion';
 
 interface Props {
   open: boolean;
@@ -22,6 +23,8 @@ interface Item {
 export default function CommandPalette({ open, onClose }: Props) {
   const navigate = useNavigate();
   const inputRef = useRef<HTMLInputElement>(null);
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const opener = useRef<Element | null>(null);
   const [query, setQuery] = useState('');
   const [index, setIndex] = useState(0);
   const [content, setContent] = useState<SearchHit[]>([]);
@@ -29,12 +32,15 @@ export default function CommandPalette({ open, onClose }: Props) {
 
   useEffect(() => {
     if (!open) return;
+    opener.current = document.activeElement;
     setQuery('');
     setIndex(0);
     setContent([]);
     requestAnimationFrame(() => inputRef.current?.focus());
-    return undefined;
+    return () => (opener.current as HTMLElement | null)?.focus?.();
   }, [open]);
+
+  useDialogIn(dialogRef, open);
 
   useEffect(() => setIndex(0), [query]);
 
@@ -99,6 +105,7 @@ export default function CommandPalette({ open, onClose }: Props) {
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center bg-on-surface/40 backdrop-blur-[2px] p-4 pt-[15vh]" onMouseDown={onClose}>
       <div
+        ref={dialogRef}
         role="dialog"
         aria-modal="true"
         aria-label="Search"
@@ -112,7 +119,7 @@ export default function CommandPalette({ open, onClose }: Props) {
             ref={inputRef}
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search pages, screens, functionalities and components…"
+            placeholder="Search pages, screens, functionality and components…"
             aria-label="Search"
             className="h-12 w-full bg-transparent text-body-lg text-on-surface placeholder:text-outline focus-visible:outline-none"
           />
@@ -121,13 +128,13 @@ export default function CommandPalette({ open, onClose }: Props) {
           {flat.length === 0 && <p className="px-3 py-6 text-center text-body-md text-on-surface-variant">No matches.</p>}
           {pages.length > 0 && (
             <>
-              <p className="px-3 py-1 text-label-md text-on-surface-variant">Pages</p>
+              <p className="eyebrow px-3 py-1">Pages</p>
               <ul role="listbox" aria-label="Pages">{pages.map((item, i) => row(item, i))}</ul>
             </>
           )}
           {contentItems.length > 0 && (
             <>
-              <p className="px-3 pb-1 pt-2 text-label-md text-on-surface-variant">All entities</p>
+              <p className="eyebrow px-3 pb-1 pt-2">Documented items</p>
               <ul role="listbox" aria-label="Catalog results">{contentItems.map((item, i) => row(item, pages.length + i))}</ul>
             </>
           )}
