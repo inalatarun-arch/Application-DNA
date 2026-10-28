@@ -25,7 +25,7 @@ jobs:
       # Exact installs from the lockfile. If the lockfile is missing, run Actions > "Update lockfile" once.
       - run: npm ci
       - run: npm run build
-      - uses: actions/upload-pages-artifact@v3
+      - uses: actions/upload-pages-artifact@v5
         with:
           path: dist
 
