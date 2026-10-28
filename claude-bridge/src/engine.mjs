@@ -4,6 +4,8 @@ import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { BridgeError } from './translate.mjs';
 
+const MIN_OUTPUT_TOKENS = 1024;
+
 /**
  * Flags that turn Claude Code into a plain text model: no session files, no user/project settings, hooks, plugins,
  * MCP servers or slash commands, and (unless images are attached) no tools. Input documents are untrusted, so a
@@ -48,7 +50,8 @@ export async function runClaude(cfg, job, { onText, signal } = {}) {
     for (const img of job.images) await writeFile(path.join(dir, img.name), img.data, { mode: 0o600 });
     const args = buildArgs({ model: job.model, system: job.system, hasImages: job.images.length > 0, dir });
     const env = { ...process.env, CLAUDE_CODE_DISABLE_AUTO_MEMORY: '1' };
-    if (job.maxTokens) env.CLAUDE_CODE_MAX_OUTPUT_TOKENS = String(job.maxTokens);
+    // The app's connection test asks for 1 token; Claude Code fails any reply that long, so never go below a floor.
+    if (job.maxTokens) env.CLAUDE_CODE_MAX_OUTPUT_TOKENS = String(Math.max(job.maxTokens, MIN_OUTPUT_TOKENS));
     return await new Promise((resolve, reject) => {
       const child = spawn(cfg.claudeBin, args, { cwd: dir, env, stdio: ['pipe', 'pipe', 'pipe'] });
       let out = '';
