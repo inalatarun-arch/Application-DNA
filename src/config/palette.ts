@@ -12,6 +12,9 @@ export interface Palette {
   accent: string;
   onAccent: string;
   edge: string;
+  /** Amber for anything the documentation does not settle. */
+  warn: string;
+  warnBg: string;
 }
 
 export const LIGHT: Palette = {
@@ -24,6 +27,8 @@ export const LIGHT: Palette = {
   accent: '#0f766e',
   onAccent: '#ffffff',
   edge: '#6e7c7c',
+  warn: '#b45309',
+  warnBg: '#fef3c7',
 };
 
 export const DARK: Palette = {
@@ -36,6 +41,8 @@ export const DARK: Palette = {
   accent: '#2dd4bf',
   onAccent: '#042826',
   edge: '#648484',
+  warn: '#f59e0b',
+  warnBg: '#3a2a08',
 };
 
 export const paletteFor = (theme: 'light' | 'dark'): Palette => (theme === 'dark' ? DARK : LIGHT);

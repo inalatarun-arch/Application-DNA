@@ -80,6 +80,23 @@ export type ComponentItem = ApplicationExtraction['technicalComponents'][number]
 export const COMPONENT_KIND_LIST: TechnicalComponent['kind'][] = ['class', 'package', 'method', 'service', 'api', 'table', 'view', 'procedure', 'trigger', 'rest', 'soap', 'middleware', 'queue', 'integration', 'server', 'cloud', 'job'];
 export const UI_TYPE_LIST: UiElementAI['type'][] = ['field', 'input', 'button', 'link', 'table', 'other'];
 
+/**
+ * Component facts arrive either as an object or, because response schemas cannot describe a free-form object, as a list of
+ * {key, value} pairs. Both become one string map; anything that is not text is dropped.
+ */
+export function metadataRecord(value: unknown): Record<string, unknown> {
+  if (Array.isArray(value)) {
+    const out: Record<string, unknown> = {};
+    for (const pair of value) {
+      const p = asRecord(pair);
+      const k = safeTrim(p.key);
+      if (k && typeof p.value === 'string' && p.value.trim()) out[k] = p.value.trim();
+    }
+    return out;
+  }
+  return asRecord(value);
+}
+
 const objects = (value: unknown): Record<string, unknown>[] => (Array.isArray(value) ? value.map(asRecord) : []);
 
 export function normalizeApplicationExtraction(value: unknown): ApplicationExtraction {
@@ -116,7 +133,7 @@ export function normalizeApplicationExtraction(value: unknown): ApplicationExtra
     };
   });
   const technicalComponents = objects(root.technicalComponents).map((item) => {
-    const metadata = asRecord(item.metadata);
+    const metadata = metadataRecord(item.metadata);
     const columns = objects(item.columns).map((column) => ({
       name: safeTrim(column.name), dataType: safeTrim(column.dataType), nullable: column.nullable !== false,
       key: (column.key === 'PK' || column.key === 'FK' ? column.key : '') as '' | 'PK' | 'FK',
@@ -276,6 +293,8 @@ export const EXTRACTION_SCHEMA = {
         properties: {
           operation: OP, ...strProps(['matchName', 'name', 'description', 'definition']),
           kind: { type: 'STRING', enum: COMPONENT_KIND_LIST },
+          // A list of pairs, because a response schema cannot describe a free-form object.
+          metadata: { type: 'ARRAY', items: { type: 'OBJECT', properties: { key: S, value: S }, required: ['key', 'value'] } },
           functionalityNames: SA, screenNames: SA, dependsOnNames: SA,
           columns: {
             type: 'ARRAY',

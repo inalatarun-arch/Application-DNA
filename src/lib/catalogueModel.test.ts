@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest';
-import { canonicaliseIds, countPlan, isProjectOnlyPart, leadingId, mergeAnswers, normalizeCatalogue, resolveApplication } from './catalogueModel';
+import { canonicaliseIds, countPlan, repairModules, isProjectOnlyPart, leadingId, mergeAnswers, normalizeCatalogue, resolveApplication } from './catalogueModel';
 
 const roster = ['Salesforce Sales Cloud', 'Oracle E-Business Suite'];
 
@@ -15,7 +15,7 @@ describe('resolveApplication', () => {
 });
 
 describe('leadingId', () => {
-  test.each([['SCR-01.01.01 Supplier Request', 'SCR-01.01.01'], ['fn-01.01.01-01 Create draft', 'FN-01.01.01-01'], ['CMP-01-01 — Workspace', 'CMP-01-01'], ['MOD-02.01', 'MOD-02.01'], ['POST /suppliers', ''], ['Supplier Request', ''], ['E-Business Suite', '']])('%s', (n, want) => expect(leadingId(n)).toBe(want));
+  test.each([['SCR-01.01.01 Supplier Request', 'SCR-01.01.01'], ['fn-01.01.01-01 Create draft', 'FN-01.01.01-01'], ['CMP-01-01 — Workspace', 'CMP-01-01'], ['MOD-02.01', 'MOD-02.01'], ['APP-03 → APP-02 bank details', ''], ['APP-01 Supplier Request', ''], ['POST /suppliers', ''], ['Supplier Request', ''], ['E-Business Suite', '']])('%s', (n, want) => expect(leadingId(n)).toBe(want));
 });
 
 describe('normalizeCatalogue', () => {
@@ -79,4 +79,23 @@ describe('isProjectOnlyPart', () => {
     [{ path: ['10. Requirements Traceability Matrix'], text: 'x' }, true], [{ path: ['2. Applications'], text: 'x' }, false], [{ path: ['5. Requirements Catalog'], text: 'x' }, false],
     [{ path: [], text: '# Functional specification\n\nx' }, false],
   ])('%j', (part, want) => expect(isProjectOnlyPart(part)).toBe(want));
+});
+
+describe('repairModules', () => {
+  const plan = (screens: Array<{ name: string; moduleName?: string }>) => normalizeCatalogue({ applications: [{ applicationName: roster[0], modules: [{ name: 'MOD-02.01 Supplier Master' }, { name: 'MOD-02.02 Payables' }], screens }] }, roster).perApp.get(roster[0])!;
+
+  test('a screen without a module joins the module whose numbers begin its own, and the repair is reported', () => {
+    const repairs: string[] = [];
+    const fixed = repairModules(plan([{ name: 'SCR-02.01.03 Bank Account Assignment' }, { name: 'SCR-02.02.01 Invoice', moduleName: 'MOD-02.02 Payables' }]), repairs);
+    expect(fixed.screens.map((s) => s.moduleName)).toEqual(['MOD-02.01 Supplier Master', 'MOD-02.02 Payables']);
+    expect(repairs).toHaveLength(1);
+    expect(repairs[0]).toMatch(/SCR-02\.01\.03.*MOD-02\.01/);
+  });
+
+  test('never guesses: no identifier numbers, no match, or an existing module are left alone', () => {
+    const repairs: string[] = [];
+    const fixed = repairModules(plan([{ name: 'Unnumbered screen' }, { name: 'SCR-09.01.01 Elsewhere' }, { name: 'SCR-02.01.04 Kept', moduleName: 'MOD-02.02 Payables' }]), repairs);
+    expect(fixed.screens.map((s) => s.moduleName)).toEqual(['', '', 'MOD-02.02 Payables']);
+    expect(repairs).toEqual([]);
+  });
 });

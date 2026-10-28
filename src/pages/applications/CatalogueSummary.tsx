@@ -18,6 +18,7 @@ export interface DetailNotes {
   failed: string[];
   truncated: number;
   unmatched: number;
+  repairs: string[];
   model: string;
 }
 
@@ -45,6 +46,7 @@ export default function CatalogueSummary({ entries, notes, error, busy, onReview
           <p>Read {notes.parts} part{notes.parts === 1 ? '' : 's'} of the document{notes.model ? ` with ${notes.model}` : ''}. The applications are already saved. Nothing below is saved until you apply it; open <strong>Review</strong> on an application to inspect, edit or drop items first.</p>
           {notes.skipped > 0 && <p className="mt-1 text-label-md font-normal text-on-surface-variant">{notes.skipped} part{notes.skipped === 1 ? '' : 's'} about test cases, defects, approvals or appendices were skipped, because they do not describe the applications themselves.</p>}
           {notes.unmatched > 0 && <p className="mt-1 text-label-md font-normal text-on-surface-variant">{notes.unmatched} item{notes.unmatched === 1 ? '' : 's'} named an application that is not in your list and were left out.</p>}
+          {notes.repairs.length > 0 && <details className="mt-1 text-label-md font-normal text-on-surface-variant"><summary className="cursor-pointer">{notes.repairs.length} link{notes.repairs.length === 1 ? ' was' : 's were'} repaired from the document's numbering</summary><ul className="list-disc pl-5">{notes.repairs.map((r) => <li key={r}>{r}</li>)}</ul></details>}
           {notes.truncated > 0 && <p className="mt-1 text-label-md text-error">{notes.truncated} part{notes.truncated === 1 ? '' : 's'} produced more than the AI could return in one reply, so some items may be missing. Split the file and import it in parts to be sure.</p>}
           {notes.failed.length > 0 && <ul className="mt-1 list-disc pl-5 text-label-md text-error">{notes.failed.map((f) => <li key={f}>{f}</li>)}</ul>}
         </div>

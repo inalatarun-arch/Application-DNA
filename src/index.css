@@ -17,6 +17,8 @@
     --on-primary: 255 255 255;
     --error: 186 26 26;
     --error-container: 255 218 214;
+    --warn: 180 83 9;
+    --warn-container: 254 243 199;
     /* Shadows are tinted with the surface hue instead of pure black. */
     --shadow: 14 58 54;
     --shadow-alpha: 0.08;
@@ -36,6 +38,8 @@
     --on-primary: 4 40 38;
     --error: 248 113 113;
     --error-container: 69 20 28;
+    --warn: 245 158 11;
+    --warn-container: 58 42 8;
     --shadow: 0 0 0;
     --shadow-alpha: 0.45;
     color-scheme: dark;
