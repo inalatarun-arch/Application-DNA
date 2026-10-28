@@ -25,7 +25,7 @@ npm run build      # type-check + production build into dist/
 - [Application DNA Product & User Guide](docs/APPLICATION-DNA-PRODUCT-USER-GUIDE.md) — product overview, capabilities, user workflows, AI behavior, operating guidance, current limitations and recommended BA lifecycle.
 
 ## What's new in this version
-- **Bulk application import**: on the Applications page, *Import from file* reads one file that lists many applications (spreadsheet/CSV columns are mapped automatically without AI; documents, PDFs, images and notes are read by the AI), shows every application for review, matches existing ones by name, and saves them in one go.
+- **Bulk application import**: on the Applications page, *Import from file* reads one file that lists many applications (spreadsheet/CSV columns are mapped automatically without AI; documents, PDFs, images and notes are read by the AI), shows every application for review, matches existing ones by name, and saves them in one go. Tick *Also extract modules, screens, functionalities and technical components* to read a long specification section by section (Word files keep their headings and tables) and build the detailed knowledge for every application, including integrations, database objects and API endpoints, with a per-application review before anything is saved. Sections about test cases, defects, approvals and appendices are skipped.
 - **Prompts** are centralised in `src/prompts/`, with JSON repair, retries and cut-off detection.
 - **Application Extractor** has a review screen: accept, reject or ask Gemini to change items before they are saved.
 - **Process flows** export to BPMN 2.0, draw.io and Visio (.vsdx), and can be changed by typing an instruction (delta edits, so few tokens).

@@ -106,7 +106,7 @@ export interface Functionality extends BaseEntity {
 export type TechnicalComponentKind =
   | 'class' | 'package' | 'method' | 'service' | 'api'
   | 'table' | 'view' | 'procedure' | 'trigger'
-  | 'rest' | 'soap' | 'middleware' | 'queue'
+  | 'rest' | 'soap' | 'middleware' | 'queue' | 'integration'
   | 'server' | 'cloud' | 'job';
 
 export interface ColumnDef {

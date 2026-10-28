@@ -13,8 +13,10 @@ export interface InventoryImportResult {
  * Saves the reviewed rows in one transaction. Whether a row creates or updates is decided here from what is stored
  * right now (not from what the review screen saw), so a stale review can never create a duplicate application.
  * Updates only fill blanks and add missing modules; nothing a person typed is overwritten.
+ * Pass `modules: false` when a detailed extraction follows, which brings its own (ID-named) modules.
  */
-export async function applyInventory(rows: StagedApp[]): Promise<InventoryImportResult> {
+export async function applyInventory(rows: StagedApp[], opts: { modules?: boolean } = {}): Promise<InventoryImportResult> {
+  const withModules = opts.modules !== false;
   const result: InventoryImportResult = { created: 0, updated: 0, modulesAdded: 0, skipped: 0 };
   await db.transaction('rw', db.applications, db.modules, async () => {
     const apps = await db.applications.toArray();
@@ -44,7 +46,7 @@ export async function applyInventory(rows: StagedApp[]): Promise<InventoryImport
         target = created;
         result.created++;
       }
-      if (a.modules.length) {
+      if (withModules && a.modules.length) {
         const have = new Set((await db.modules.where('applicationId').equals(target.id).toArray()).map((m) => normKey(m.name)));
         for (const m of a.modules) {
           if (have.has(normKey(m.name))) continue;

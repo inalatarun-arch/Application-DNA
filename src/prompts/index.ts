@@ -12,7 +12,7 @@ export const MERMAID_RULES =
   'Mermaid rules: first line "flowchart TD"; node ids use letters and digits only; every label is in double quotes with no inner quotes, parentheses or semicolons; at most 25 nodes; label every decision edge; output plain Mermaid text without code fences.';
 
 export const COMPONENT_KINDS =
-  'class|package|method|service|api|table|view|procedure|trigger|rest|soap|middleware|queue|server|cloud|job';
+  'class|package|method|service|api|table|view|procedure|trigger|rest|soap|middleware|queue|integration|server|cloud|job';
 
 export const UI_ELEMENT_TYPES = 'field|input|button|link|table|other';
 
@@ -71,6 +71,33 @@ RULES
 
 export const INVENTORY_CLOSE =
   'List every application in the material above now, following the output contract. JSON only.';
+
+// ---------------------------------------------------------------- 1c. Catalogue extraction (several applications, one part of a long document)
+export const CATALOGUE_SYSTEM = `You extract an application knowledge catalogue from ONE PART of a longer specification. The specification describes several applications; the application roster is given. Extract everything this part states about the roster applications' modules, screens, functionalities and technical components.
+${DATA}
+
+OUTPUT: {applications: [{applicationName, modules[], screens[], functionalities[], technicalComponents[]}]}. One entry per roster application that this part describes. applicationName is copied EXACTLY from the roster. Use "" or [] for unknown fields; never null. If this part describes none of them (for example a glossary), return {"applications": []}.
+
+NAMES AND IDS
+- When the source gives an identifier (MOD-01.01, SCR-01.01.01, FN-01.01.01-01, CMP-01-01, INT-01-01, OBJ-02-01, API-02-01, JOB-02-01, INF-02-01 ...), start the item's name with it: "SCR-01.01.01 Supplier Request". Always refer to an item by that same full name everywhere (moduleName, screenName, relatedScreenNames, functionalityNames, screenNames, dependsOnNames).
+- operation is "create" and matchName "" for everything.
+
+WHAT TO EXTRACT (one item per row or heading in the source; never merge two rows, never skip a row)
+1. modules: from module catalogues and module headings. owner when stated.
+2. screens: one per screen. moduleName is the module's full name. Map the screen's own details table: purpose, businessProcess, businessOwner, functionalOwner, navigationPath, approvalLogic, exceptionHandling[] (split into items), upstreamSystems[], downstreamSystems[], workflowSteps[] (one per numbered step), relatedScreenNames[] (full names). Field definition tables: every field becomes a fieldDescriptions entry {field, description: "<data type>; <mandatory?>; <rule>; e.g. <sample>"}, a uiElements entry {name, type (field|input|button|link|table|other), description, action, required}, and each distinct validation rule goes into validationRules[].
+3. functionalities: one per function row. screenName is the screen's full name. Fill description, businessPurpose, processFlow (the numbered steps as text), userRoles[], triggers[], inputs[], outputs[], exceptions {validation[], error[], business[], system[]}, upstreamSystems[], downstreamSystems[], relatedFunctionalityNames[] from the row.
+4. technicalComponents (kind exactly one of ${COMPONENT_KINDS}):
+   - Integrations (interfaces between systems): kind "integration", metadata {integrationType, source, target, direction, frequency, payload, authentication, errorHandling, owner}.
+   - Application components (CMP ids, services, workspaces, publishers): kind "service" (or job, queue, middleware, server, cloud, class when the source says so); description = the responsibility; metadata {owner}.
+   - Database objects: kind table, view, procedure or trigger as stated. columns[] {name, dataType, nullable, key ("PK"|"FK"|""), references ("TABLE.COLUMN"), description} from the columns list; relationships and access controls go in metadata {relationships, accessControls}.
+   - API endpoints: kind "rest" (or "soap"); name "API-02-01 POST /path"; metadata {httpMethod, path, requestSchema, responseSchema, authMethod, status}.
+   - Scheduled jobs: kind "job"; infrastructure resources: kind "server" or "cloud"; put schedule, status and owner in metadata.
+   Link components with screenNames, functionalityNames and dependsOnNames when the source states the link.
+5. Never invent. Copy owners, versions and statuses as written. Never copy personal data; sample values may be summarised.
+6. Only items described in THIS part. Items that other parts will cover are not your concern, and a restated item must keep the same ID-based name.`;
+
+export const CATALOGUE_CLOSE =
+  'Extract every module, screen, functionality and technical component in this part now. One item per source row. JSON only.';
 
 // ---------------------------------------------------------------- 1b. Extraction review revise
 export const EXTRACTION_REVISE_SYSTEM = `You revise a staged Application DNA extraction after a human review.

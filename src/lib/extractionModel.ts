@@ -77,7 +77,7 @@ export type ScreenItem = ApplicationExtraction['screens'][number];
 export type FunctionalityItem = ApplicationExtraction['functionalities'][number];
 export type ComponentItem = ApplicationExtraction['technicalComponents'][number];
 
-export const COMPONENT_KIND_LIST: TechnicalComponent['kind'][] = ['class', 'package', 'method', 'service', 'api', 'table', 'view', 'procedure', 'trigger', 'rest', 'soap', 'middleware', 'queue', 'server', 'cloud', 'job'];
+export const COMPONENT_KIND_LIST: TechnicalComponent['kind'][] = ['class', 'package', 'method', 'service', 'api', 'table', 'view', 'procedure', 'trigger', 'rest', 'soap', 'middleware', 'queue', 'integration', 'server', 'cloud', 'job'];
 export const UI_TYPE_LIST: UiElementAI['type'][] = ['field', 'input', 'button', 'link', 'table', 'other'];
 
 const objects = (value: unknown): Record<string, unknown>[] => (Array.isArray(value) ? value.map(asRecord) : []);
