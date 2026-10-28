@@ -1,4 +1,4 @@
-# Enterprise Intelligence Hub (EIH)
+# Application DNA
 
 AI-powered application knowledge and delivery management platform. Runs fully in the browser:
 React + TypeScript + Tailwind, local data in IndexedDB (Dexie), AI via your own Gemini API key.

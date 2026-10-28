@@ -1123,7 +1123,7 @@ It can be opened from:
 
 - The Copilot page.
 - The global assistant.
-- Ctrl/Cmd + K.
+- Ctrl/Cmd + J (Ctrl/Cmd + K opens search).
 
 ## Current retrieval model
 

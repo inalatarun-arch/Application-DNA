@@ -3,18 +3,25 @@
 @tailwind utilities;
 
 @layer base {
-  /* One accent (deep teal) over a cool, faintly green-tinted neutral. Values are space-separated RGB channels. */
+  /* Ink and paper neutrals with one teal accent (the primary strand) and a coral secondary strand used sparingly.
+     Status colors carry meaning, so they are real hues rather than grays. Values are space-separated RGB channels. */
   :root {
-    --surface: 246 248 248;
+    --surface: 246 247 245;
     --surface-lowest: 255 255 255;
-    --surface-low: 240 243 243;
-    --surface-container: 231 236 236;
-    --on-surface: 20 28 28;
-    --on-surface-variant: 66 79 79;
-    --outline: 110 124 124;
-    --outline-variant: 203 212 212;
-    --primary: 15 118 110;
+    --surface-low: 240 242 239;
+    --surface-container: 230 234 231;
+    --on-surface: 17 24 24;
+    --on-surface-variant: 71 84 83;
+    --outline: 112 125 124;
+    --outline-variant: 208 215 212;
+    --primary: 12 110 100;
     --on-primary: 255 255 255;
+    --primary-container: 215 240 235;
+    --accent: 214 84 58;
+    --success: 21 115 71;
+    --success-container: 218 241 226;
+    --warning: 156 90 8;
+    --warning-container: 252 234 198;
     --error: 186 26 26;
     --error-container: 255 218 214;
     /* Shadows are tinted with the surface hue instead of pure black. */
@@ -24,16 +31,22 @@
   }
 
   .dark {
-    --surface: 9 15 15;
-    --surface-lowest: 17 25 25;
-    --surface-low: 13 20 20;
-    --surface-container: 27 38 38;
-    --on-surface: 226 237 237;
-    --on-surface-variant: 148 168 168;
-    --outline: 100 120 120;
-    --outline-variant: 44 60 60;
+    --surface: 10 15 15;
+    --surface-lowest: 18 26 26;
+    --surface-low: 14 21 21;
+    --surface-container: 28 39 39;
+    --on-surface: 226 237 236;
+    --on-surface-variant: 150 169 168;
+    --outline: 104 124 123;
+    --outline-variant: 44 60 59;
     --primary: 45 212 191;
     --on-primary: 4 40 38;
+    --primary-container: 16 52 49;
+    --accent: 255 138 110;
+    --success: 74 222 128;
+    --success-container: 14 52 32;
+    --warning: 251 191 36;
+    --warning-container: 62 44 8;
     --error: 248 113 113;
     --error-container: 69 20 28;
     --shadow: 0 0 0;
@@ -49,11 +62,16 @@
 
   body {
     @apply bg-surface font-sans text-body-md text-on-surface antialiased;
+    font-feature-settings: 'cv11', 'ss01';
   }
 
   :focus-visible {
     outline: 2px solid rgb(var(--primary));
     outline-offset: 2px;
+  }
+
+  ::selection {
+    background: rgb(var(--primary) / 0.22);
   }
 
   @media (prefers-reduced-motion: reduce) {
@@ -67,13 +85,19 @@
 @layer components {
   /* Shape rule: controls (buttons, inputs, chips) use `rounded` (6px); surfaces (cards, panels, modals) use `rounded-lg` (10px). */
   .btn {
-    @apply inline-flex items-center justify-center gap-2 rounded border px-4 py-2 text-body-md font-medium transition duration-150 ease-out active:translate-y-px active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50 disabled:active:translate-y-0 disabled:active:scale-100;
+    @apply inline-flex items-center justify-center gap-2 whitespace-nowrap rounded border px-4 py-2 text-body-md font-medium transition duration-150 ease-out active:translate-y-px active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50 disabled:active:translate-y-0 disabled:active:scale-100;
   }
   .btn-primary {
     @apply border-primary bg-primary text-on-primary hover:opacity-90;
   }
   .btn-secondary {
     @apply border-outline-variant bg-surface-lowest text-on-surface hover:bg-surface-container;
+  }
+  .btn-ghost {
+    @apply border-transparent bg-transparent px-2 py-1 text-label-md text-on-surface-variant hover:bg-surface-container hover:text-on-surface;
+  }
+  .btn-sm {
+    @apply px-3 py-1;
   }
   .icon-btn {
     @apply inline-flex h-9 w-9 items-center justify-center rounded text-on-surface-variant transition duration-150 hover:bg-surface-container hover:text-on-surface active:scale-95;
@@ -83,13 +107,24 @@
   }
   .card {
     @apply rounded-lg border border-outline-variant bg-surface-lowest p-6;
-    box-shadow: 0 1px 2px rgb(var(--shadow) / var(--shadow-alpha)), 0 8px 24px -12px rgb(var(--shadow) / var(--shadow-alpha));
+    box-shadow: 0 1px 2px rgb(var(--shadow) / var(--shadow-alpha));
+  }
+  /* A card that is a single link or button target: lifts on hover so the whole surface reads as pressable. */
+  .card-interactive {
+    @apply transition-[border-color,box-shadow] duration-200 hover:border-primary/50;
+  }
+  .card-interactive:hover {
+    box-shadow: 0 1px 2px rgb(var(--shadow) / var(--shadow-alpha)), 0 12px 28px -14px rgb(var(--shadow) / calc(var(--shadow-alpha) * 2.5));
   }
   .field-label {
     @apply mb-1 block text-label-md text-on-surface;
   }
   .field-hint {
     @apply mt-1 text-label-md font-normal text-on-surface-variant;
+  }
+  /* Small uppercase section label used above groups of rows. */
+  .eyebrow {
+    @apply text-label-md font-semibold uppercase tracking-[0.08em] text-on-surface-variant;
   }
   /* Loading placeholder shaped like the content it stands in for. */
   .skeleton {

@@ -32,8 +32,8 @@ export function AiKeyBanner({ onOpenSettings }: { onOpenSettings: () => void }) 
   };
 
   return (
-    <div className="mb-4 flex flex-wrap items-center gap-3 rounded-lg border border-primary bg-surface-lowest px-4 py-3 text-body-md">
-      {vault.hasVault ? <Lock size={16} /> : <KeyRound size={16} />}
+    <div className="mb-4 flex flex-wrap items-center gap-3 rounded-lg border border-warning/40 bg-warning-container px-4 py-3 text-body-md">
+      {vault.hasVault ? <Lock size={16} aria-hidden /> : <KeyRound size={16} aria-hidden />}
       {!vault.hasVault ? (
         <>
           <span className="flex-1">AI features need your API key. Add it once - it is stored encrypted.</span>
@@ -67,7 +67,7 @@ export function AiKeyBanner({ onOpenSettings }: { onOpenSettings: () => void }) 
           <button className={btnSecondary} onClick={onOpenSettings}>
             AI Settings
           </button>
-          {err && <span className="w-full text-label-md font-semibold">{err}</span>}
+          {err && <span role="alert" className="w-full text-label-md font-semibold text-error">{err}</span>}
         </>
       )}
     </div>
