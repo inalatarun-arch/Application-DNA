@@ -3,6 +3,8 @@ import http from 'node:http';
 import { randomUUID, timingSafeEqual } from 'node:crypto';
 import { MODELS, resolveModel } from './config.mjs';
 import { claudeVersion, runClaude } from './engine.mjs';
+import { crawlRepo } from './crawl-repo.mjs';
+import { crawlSite } from './crawl-site.mjs';
 import { BridgeError, chunk, completion, errorBody, finishReason, parseChatRequest, usageOf } from './translate.mjs';
 
 const MAX_WAITING = 50;
@@ -109,6 +111,34 @@ export function createBridge(cfg, log = () => undefined) {
     }
   }
 
+  /** Collects evidence from a live site and/or a repository. One failing source does not lose the other. */
+  async function crawl(req, res, cors) {
+    const body = await readBody(req);
+    const siteUrl = typeof body.siteUrl === 'string' ? body.siteUrl.trim() : '';
+    const repoUrl = typeof body.repoUrl === 'string' ? body.repoUrl.trim() : '';
+    if (!siteUrl && !repoUrl) throw new BridgeError(400, 'Give a site address, a repository link, or both.');
+    const ac = new AbortController();
+    res.on('close', () => { if (!res.writableEnded) ac.abort(); });
+    await gate.enter(ac.signal);
+    try {
+      const jobs = [];
+      if (siteUrl) jobs.push(['site', () => crawlSite({ url: siteUrl, maxPages: body.maxPages, maxDepth: body.maxDepth, headers: body.headers, signal: ac.signal })]);
+      if (repoUrl) jobs.push(['repository', () => crawlRepo({ url: repoUrl, tmpDir: cfg.tmpDir, signal: ac.signal })]);
+      const settled = await Promise.allSettled(jobs.map(([, run]) => run()));
+      const files = [];
+      const errors = [];
+      settled.forEach((r, i) => {
+        if (r.status === 'fulfilled') files.push(r.value);
+        else errors.push({ source: jobs[i][0], message: r.reason instanceof BridgeError ? r.reason.message : `The ${jobs[i][0]} crawl failed: ${r.reason?.message ?? r.reason}` });
+      });
+      if (!files.length) throw new BridgeError(502, errors.map((e) => `${e.source}: ${e.message}`).join(' '), 'api_error', 'crawl_failed');
+      stats.crawls = (stats.crawls ?? 0) + 1;
+      send(res, 200, { files, errors }, cors);
+    } finally {
+      gate.leave();
+    }
+  }
+
   const server = http.createServer(async (req, res) => {
     const origin = req.headers.origin;
     // Only an allowed site gets CORS headers, so a refused page cannot even read the refusal.
@@ -146,6 +176,7 @@ export function createBridge(cfg, log = () => undefined) {
         return send(res, 200, { object: 'list', data: MODELS.map((m) => ({ id: m.id, object: 'model', created: 0, owned_by: 'claude-code', name: m.name, description: m.description })) }, cors);
       }
       if (req.method === 'POST' && route === '/chat/completions') return await chat(req, res, cors);
+      if (req.method === 'POST' && route === '/crawl') return await crawl(req, res, cors);
       throw new BridgeError(404, `No such endpoint: ${req.method} ${url.pathname}`, 'invalid_request_error', 'not_found');
     } catch (err) {
       const e = err instanceof BridgeError ? err : new BridgeError(500, String(err?.message ?? err), 'api_error');

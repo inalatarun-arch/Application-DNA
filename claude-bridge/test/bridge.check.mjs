@@ -18,13 +18,18 @@ const post = (body, headers = {}) => fetch(`${base}/chat/completions`, { method:
 const ask = (content, extra = {}) => post({ model: 'sonnet', messages: [{ role: 'user', content }], ...extra });
 
 test('maps a chat request to one claude call and back', async () => {
-  const r = await post({ model: 'opus', max_tokens: 777, messages: [{ role: 'system', content: 'Be brief.' }, { role: 'user', content: 'hello' }] });
+  const r = await post({ model: 'opus', max_tokens: 5000, messages: [{ role: 'system', content: 'Be brief.' }, { role: 'user', content: 'hello' }] });
   assert.equal(r.status, 200);
   const j = await r.json();
   assert.equal(j.choices[0].finish_reason, 'stop');
   const seen = JSON.parse(j.choices[0].message.content);
-  assert.deepEqual({ ...seen }, { prompt: 'hello', system: 'Be brief.', model: 'opus', tools: '', max: '777' });
+  assert.deepEqual({ ...seen }, { prompt: 'hello', system: 'Be brief.', model: 'opus', tools: '', max: '5000' });
   assert.equal(j.usage.total_tokens, 14);
+});
+
+test('tiny max_tokens (the app\'s connection test sends 1) is raised to a workable floor', async () => {
+  const j = await (await post({ model: 'sonnet', max_tokens: 1, messages: [{ role: 'user', content: 'ping' }] })).json();
+  assert.equal(JSON.parse(j.choices[0].message.content).max, '1024');
 });
 
 test('unknown model names fall back to Claude Code default', () => {
@@ -102,6 +107,14 @@ test('images must be inline data URLs of a supported type', () => {
   const j = parseChatRequest(part('data:image/png;base64,iVBORw0KGgo='));
   assert.equal(j.images[0].name, 'image-1.png');
   assert.match(j.prompt, /Read tool/);
+});
+
+test('inline PDFs are accepted as files; other file parts are refused', () => {
+  const file = (data) => ({ messages: [{ role: 'user', content: [{ type: 'text', text: 'read' }, { type: 'file', file: { filename: 'a.pdf', file_data: data } }] }] });
+  const j = parseChatRequest(file('data:application/pdf;base64,JVBERi0='));
+  assert.equal(j.images[0].name, 'document-1.pdf');
+  assert.match(j.prompt, /Attached PDF: document-1\.pdf/);
+  assert.throws(() => parseChatRequest(file('data:text/html;base64,AAAA')), /PDF/);
 });
 
 test('oversized system text moves into the prompt', () => {

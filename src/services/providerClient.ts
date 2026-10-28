@@ -3,7 +3,7 @@
  * geminiService calls into here when the active provider is not Gemini, so no feature code has to change.
  */
 import type { AiFeature } from '@/config/ai';
-import { PROVIDERS, type ModelInfo, type ProviderId } from '@/config/providers';
+import { PROVIDERS, isLocalUrl, type ModelInfo, type ProviderId } from '@/config/providers';
 import { getAiSettings } from '@/db/settings';
 import { getVaultSnapshot } from '@/lib/vault';
 import { parseJsonLoose } from '@/lib/jsonRepair';
@@ -71,7 +71,7 @@ function normRequest(p: OtherProvider, prompt: PromptLike, opts: ProviderOptions
   return {
     model,
     system: opts.system,
-    messages: toNormMessages(prompt, info.label, { pdf: info.readsPdf, image: info.readsImages }),
+    messages: toNormMessages(prompt, info.label, { pdf: info.readsPdf || (p === 'openai' && isLocalUrl(getBaseUrl(p))), image: info.readsImages }),
     temperature,
     maxTokens: opts.maxOutputTokens,
     json,

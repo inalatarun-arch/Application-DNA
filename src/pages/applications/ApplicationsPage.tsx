@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { Blocks, LayoutGrid, Pencil, Plus, Search, Table2, Trash2 } from 'lucide-react';
+import { Blocks, FileUp, LayoutGrid, Pencil, Plus, Search, Table2, Trash2 } from 'lucide-react';
 import { db } from '@/db/db';
 import { CRITICAL_TIERS, countApplicationContents, deleteApplication, type ApplicationStats } from '@/db/catalog';
 import { loadSampleData } from '@/db/seed';
@@ -16,6 +16,8 @@ import { cn } from '@/lib/cn';
 import { formatDateTime } from '@/lib/format';
 import ApplicationsTabs from './ApplicationsTabs';
 import ApplicationFormModal from './ApplicationFormModal';
+import BulkImportModal from './BulkImportModal';
+import type { InventoryImportResult } from '@/db/inventoryImport';
 import PageSkeleton from '@/components/ui/Skeleton';
 
 type View = 'grid' | 'table';
@@ -34,6 +36,10 @@ export default function ApplicationsPage() {
   const [form, setForm] = useState<{ open: boolean; app?: Application }>({ open: false });
   const [toDelete, setToDelete] = useState<{ app: Application; stats: ApplicationStats } | null>(null);
   const [seeding, setSeeding] = useState(false);
+  const [importing, setImporting] = useState(false);
+  const [notice, setNotice] = useState('');
+
+  const imported = (r: InventoryImportResult) => setNotice(`Import finished: ${r.created} application${r.created === 1 ? '' : 's'} created, ${r.updated} existing updated, ${r.modulesAdded} module${r.modulesAdded === 1 ? '' : 's'} added${r.skipped ? `, ${r.skipped} skipped` : ''}.`);
 
   const data = useLiveQuery(async () => {
     const [apps, modKeys, scrKeys, fnKeys] = await Promise.all([
@@ -85,12 +91,19 @@ export default function ApplicationsPage() {
         title="Applications"
         description="Every enterprise application you document, with its modules, screens and functionality."
         actions={
-          <button type="button" className="btn btn-primary" onClick={() => setForm({ open: true })}>
-            <Plus size={16} aria-hidden />
-            New application
-          </button>
+          <div className="flex flex-wrap gap-2">
+            <button type="button" className="btn btn-secondary" onClick={() => setImporting(true)}>
+              <FileUp size={16} aria-hidden />
+              Import from file
+            </button>
+            <button type="button" className="btn btn-primary" onClick={() => setForm({ open: true })}>
+              <Plus size={16} aria-hidden />
+              New application
+            </button>
+          </div>
         }
       />
+      {notice && <p role="status" className="mb-4 flex items-start justify-between gap-3 rounded border border-outline-variant bg-surface-low p-3 text-body-md">{notice}<button type="button" className="underline" onClick={() => setNotice('')}>Dismiss</button></p>}
       <ApplicationsTabs />
 
       {empty ? (
@@ -98,6 +111,10 @@ export default function ApplicationsPage() {
           <button type="button" className="btn btn-primary" onClick={() => setForm({ open: true })}>
             <Plus size={16} aria-hidden />
             New application
+          </button>
+          <button type="button" className="btn btn-secondary" onClick={() => setImporting(true)}>
+            <FileUp size={16} aria-hidden />
+            Import from file
           </button>
           <button type="button" className="btn btn-secondary" onClick={() => void seed()} disabled={seeding}>
             Load sample data
@@ -209,6 +226,7 @@ export default function ApplicationsPage() {
         </>
       )}
 
+      <BulkImportModal open={importing} onClose={() => setImporting(false)} onImported={imported} />
       <ApplicationFormModal open={form.open} application={form.app} onClose={() => setForm({ open: false })} />
 
       <ConfirmModal

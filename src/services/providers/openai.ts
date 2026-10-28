@@ -16,6 +16,7 @@ function toContent(m: NormMessage): string | Array<Record<string, unknown>> {
   return m.parts.map((p) => {
     if (p.text) return { type: 'text', text: p.text };
     if (p.image) return { type: 'image_url', image_url: { url: `data:${p.image.mimeType};base64,${p.image.data}` } };
+    if (p.document) return { type: 'file', file: { filename: 'document.pdf', file_data: `data:${p.document.mimeType};base64,${p.document.data}` } };
     return { type: 'text', text: '' };
   }).filter((p) => !(p.type === 'text' && !p.text));
 }
