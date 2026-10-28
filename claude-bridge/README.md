@@ -32,6 +32,29 @@ It uses your Claude Code allowance (Pro/Max/Team/Enterprise plan), so heavy runs
 - **The bridge must be running** whenever you use AI in the app, and Claude Code must be signed in on the same computer.
 - Temperature is not adjustable through Claude Code and is ignored.
 
+## Application crawler
+
+The bridge also has a crawler, used by **Applications > (an application) > AI application capture > Crawl a live application
+and/or its repository**. Enter the running app's URL, its repository link, or both, press **Crawl and collect evidence**, add any
+plain-English context in the box above, then press **Analyse and review**. The crawl only gathers evidence; the normal AI
+capture turns it into modules, screens, functionalities and technical components, and you approve each item before it is saved.
+It works with any AI provider, not only the bridge, but the bridge must be running because it does the crawling.
+
+- **Live site:** plain HTTP GETs on the same host only (default 25 pages, 3 levels deep, honours `robots.txt`, never follows
+  logout/delete links, never submits forms). It records page titles, headings, navigation, form fields, table columns, buttons
+  and, for JavaScript apps, the routes and API paths found in the site's script bundles.
+- **Repository:** a shallow `git clone` with your own git credentials (private repos work if git can already read them), then a
+  digest of the stack, folder layout, routes/endpoints, data models and the most informative files. The clone is deleted afterwards.
+  Only `https://` links are accepted.
+- **Behind a login:** paste the `Cookie` header from a signed-in browser tab into the optional Cookie field. It is sent only to the
+  bridge and the app you entered, and is never saved. Apps that need a real browser (single sign-on pages, screens drawn by
+  JavaScript) are not covered; use the repository link for those. A browser-driven crawler (Playwright) is the next step if you need it.
+- **Company proxy:** if pages report "could not be fetched", start the bridge with `NODE_USE_ENV_PROXY=1` (and
+  `NODE_EXTRA_CA_CERTS=<path to your company root certificate>` if it uses its own certificate). On Windows PowerShell:
+  `$env:NODE_USE_ENV_PROXY="1"; npm run bridge`.
+- Crawling internal addresses is allowed (that is the point), so only run the bridge on a computer you trust. Cloud metadata
+  addresses and non-http(s) links are blocked.
+
 ## Settings (environment variables)
 
 | Variable | Default | Meaning |

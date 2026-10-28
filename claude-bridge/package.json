@@ -8,6 +8,6 @@
   "scripts": {
     "start": "node bin/serve.mjs",
     "mcp": "node bin/mcp.mjs",
-    "test": "node --test test/bridge.check.mjs"
+    "test": "node --test test/bridge.check.mjs test/crawl.check.mjs"
   }
 }
