@@ -9,13 +9,21 @@ import { applyInventory, type InventoryImportResult } from '@/db/inventoryImport
 import type { CriticalTier } from '@/db/types';
 import { describeError, isGeminiError } from '@/services/geminiService';
 import { extractInventory, type InventoryRun } from '@/services/appInventoryAI';
+import { extractCatalogue } from '@/services/catalogueAI';
+import { applyApplicationExtraction, type IngestionResult } from '@/services/applicationIngestion';
+import { countPlan, sumCounts } from '@/lib/catalogueModel';
+import { normName, stageExtraction, type ExistingNames } from '@/lib/extractionStage';
+import type { Application } from '@/db/types';
+import type { ApplicationExtraction } from '@/lib/extractionModel';
+import ExtractionReview from './ExtractionReview';
+import CatalogueSummary, { type DetailEntry, type DetailNotes } from './CatalogueSummary';
 import { normKey, stageInventory, type StagedApp } from '@/lib/appInventory';
 import { cn } from '@/lib/cn';
 
 interface Props {
   open: boolean;
   onClose: () => void;
-  onImported: (result: InventoryImportResult) => void;
+  onImported: (result: InventoryImportResult, details?: string) => void;
 }
 
 const ACCEPT = '.csv,.tsv,.xlsx,.xls,.docx,.pdf,.txt,.md,.json,.xml,.yaml,.yml,.png,.jpg,.jpeg,.webp';
@@ -32,10 +40,19 @@ export default function BulkImportModal({ open, onClose, onImported }: Props) {
   const [rows, setRows] = useState<StagedApp[] | null>(null);
   const [open_, setOpen_] = useState<Set<string>>(new Set());
   const [saving, setSaving] = useState(false);
+  const [deep, setDeep] = useState(false);
+  const [stage, setStage] = useState<'upload' | 'review' | 'extracting' | 'details'>('upload');
+  const [saved, setSaved] = useState<InventoryImportResult | null>(null);
+  const [roster, setRoster] = useState<string[]>([]);
+  const [entries, setEntries] = useState<DetailEntry[]>([]);
+  const [notesInfo, setNotesInfo] = useState<DetailNotes | null>(null);
+  const [deepError, setDeepError] = useState('');
+  const [deepProgress, setDeepProgress] = useState({ done: 0, total: 0, message: '' });
+  const [detailReview, setDetailReview] = useState<{ app: Application; plan: ApplicationExtraction; existing: ExistingNames } | null>(null);
   const abort = useRef<AbortController | null>(null);
   const input = useRef<HTMLInputElement>(null);
 
-  const reset = () => { setFiles([]); setNotes(''); setError(''); setRun(null); setRows(null); setOpen_(new Set()); setBusy(false); setSaving(false); setProgress(''); };
+  const reset = () => { setStage('upload'); setDeep(false); setSaved(null); setRoster([]); setEntries([]); setNotesInfo(null); setDeepError(''); setDetailReview(null); setFiles([]); setNotes(''); setError(''); setRun(null); setRows(null); setOpen_(new Set()); setBusy(false); setSaving(false); setProgress(''); };
   const close = () => { abort.current?.abort(); reset(); onClose(); };
 
   const extract = async () => {
@@ -47,6 +64,9 @@ export default function BulkImportModal({ open, onClose, onImported }: Props) {
       if (!result.apps.length) { setError('No applications were found in this material. Check that the file lists application names, or add a note describing them.'); return; }
       setRun(result);
       setRows(stageInventory(result.apps, existing));
+      // Documents, PDFs and notes usually hold more than a name list; plain tables rarely do.
+      setDeep(files.some((f) => !/\.(csv|tsv|xlsx|xls)$/i.test(f.name)) || !!notes.trim());
+      setStage('review');
     } catch (err) {
       setError(isGeminiError(err) && err.code === 'ABORTED' ? 'Extraction cancelled. Nothing was saved.' : describeError(err));
     } finally { setBusy(false); setProgress(''); abort.current = null; }
@@ -67,45 +87,122 @@ export default function BulkImportModal({ open, onClose, onImported }: Props) {
     return { selected: sel.length, fresh: sel.filter((r) => !r.existingId).length, matched: sel.filter((r) => r.existingId).length, total: rows?.length ?? 0 };
   }, [rows]);
 
+  const detailsMessage = (list: DetailEntry[]) => {
+    const t = sumCounts(list.filter((e) => e.status === 'applied').map((e) => e.counts));
+    const parts = [`${t.modules} modules`, `${t.screens} screens`, `${t.functionalities} functionalities`, `${t.integrations} integrations`, `${t.components + t.database + t.apis} technical components`];
+    return list.some((e) => e.status === 'applied') ? `Details applied: ${parts.join(', ')}.` : undefined;
+  };
+
+  const finish = (result: InventoryImportResult, list: DetailEntry[] = []) => { onImported(result, detailsMessage(list)); reset(); onClose(); };
+
+  const runDeep = async (names: string[]) => {
+    setStage('extracting'); setDeepError(''); setEntries([]); setNotesInfo(null);
+    setDeepProgress({ done: 0, total: 0, message: 'Preparing the document...' });
+    const controller = new AbortController(); abort.current = controller;
+    try {
+      const r = await extractCatalogue(files, notes, names, { signal: controller.signal, onProgress: (done, total, message) => setDeepProgress({ done, total, message }) });
+      setEntries(names.map((name) => { const plan = r.plans.get(name) ?? null; return { name, plan, counts: plan ? countPlan(plan) : countPlan({ application: {}, modules: [], screens: [], functionalities: [], technicalComponents: [] }), status: 'pending' as const }; }));
+      setNotesInfo({ parts: r.parts, skipped: r.skipped, failed: r.failed, truncated: r.truncated, unmatched: r.unmatched, model: r.model });
+    } catch (err) {
+      setDeepError(isGeminiError(err) && err.code === 'ABORTED' ? 'Detail extraction was stopped. The applications are saved; you can try again.' : `${describeError(err)} The applications are saved; you can try again.`);
+    } finally { setStage('details'); abort.current = null; }
+  };
+
   const save = async () => {
     if (!rows || saving || !counts.selected) return;
     setSaving(true); setError('');
     try {
-      const result = await applyInventory(rows);
-      onImported(result);
-      reset(); onClose();
+      const chosen = rows.filter((r) => r.selected && r.app.name.trim());
+      const result = await applyInventory(rows, { modules: !deep });
+      if (!deep) { finish(result); return; }
+      setSaved(result);
+      // Roster names are the stored names, so each answer can be matched back to its application.
+      const names = [...new Set(chosen.map((r) => r.existingName ?? r.app.name.trim()))];
+      setRoster(names);
+      setSaving(false);
+      await runDeep(names);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not save the applications.');
       setSaving(false);
     }
   };
 
-  const reviewing = rows !== null;
+  const openDetail = async (name: string) => {
+    const entry = entries.find((e) => e.name === name);
+    const app = (await db.applications.toArray()).find((a) => normKey(a.name) === normKey(name));
+    if (!entry?.plan || !app) { setDeepError(`Could not find ${name} in the catalogue.`); return; }
+    const [mods, scr, fns, comps] = await Promise.all([
+      db.modules.where('applicationId').equals(app.id).toArray(), db.screens.where('applicationId').equals(app.id).toArray(),
+      db.functionalities.where('applicationId').equals(app.id).toArray(), db.technicalComponents.where('applicationId').equals(app.id).toArray(),
+    ]);
+    const names = (list: Array<{ name: string }>) => new Set(list.map((x) => normName(x.name)));
+    setDetailReview({ app, plan: entry.plan, existing: { module: names(mods), screen: names(scr), functionality: names(fns), component: names(comps) } });
+  };
+
+  const markApplied = (name: string, result: IngestionResult) => setEntries((list) => list.map((e) => (e.name === name ? { ...e, status: 'applied', result } : e)));
+
+  const applyOne = async (plan: ApplicationExtraction) => {
+    if (!detailReview) return;
+    const result = await applyApplicationExtraction(detailReview.app, plan, []);
+    markApplied(detailReview.app.name, result);
+    setDetailReview(null);
+  };
+
+  const applyAll = async () => {
+    setSaving(true); setDeepError('');
+    try {
+      const apps = await db.applications.toArray();
+      for (const e of entries) {
+        if (e.status === 'applied' || !e.plan) continue;
+        const app = apps.find((a) => normKey(a.name) === normKey(e.name));
+        if (!app) continue;
+        markApplied(e.name, await applyApplicationExtraction(app, e.plan, []));
+      }
+    } catch (err) {
+      setDeepError(err instanceof Error ? err.message : 'Could not save the details.');
+    } finally { setSaving(false); }
+  };
+
+  const pending = entries.filter((e) => e.status === 'pending' && e.plan).length;
+
+  const title = { upload: 'Import applications from a file', review: 'Review applications found', extracting: 'Reading the document in detail', details: 'Modules, screens, functionalities and components' }[stage];
+  const footer = stage === 'review' ? (
+    <>
+      <button type="button" className="btn btn-secondary" onClick={() => { setRows(null); setRun(null); setError(''); setStage('upload'); }} disabled={saving}>Back</button>
+      <button type="button" className="btn btn-primary" disabled={saving || counts.selected === 0} onClick={() => void save()}>
+        {saving ? <Loader2 size={16} className="animate-spin" aria-hidden /> : null}
+        {saving ? 'Saving...' : deep ? `Import ${counts.selected} and extract details` : `Import ${counts.selected} application${counts.selected === 1 ? '' : 's'}`}
+      </button>
+    </>
+  ) : stage === 'extracting' ? (
+    <button type="button" className="btn btn-secondary" onClick={() => abort.current?.abort()}><Square size={14} aria-hidden /> Stop</button>
+  ) : stage === 'details' ? (
+    <>
+      {entries.length === 0 || deepError ? <button type="button" className="btn btn-secondary" onClick={() => void runDeep(roster)}>Try again</button> : null}
+      {pending > 0 && <button type="button" className="btn btn-secondary" disabled={saving} onClick={() => void applyAll()}>{saving ? 'Applying...' : `Apply all ${pending} application${pending === 1 ? '' : 's'}`}</button>}
+      <button type="button" className="btn btn-primary" disabled={saving} onClick={() => saved && finish(saved, entries)}>{pending > 0 ? 'Finish without applying the rest' : 'Done'}</button>
+    </>
+  ) : (
+    <>
+      <button type="button" className="btn btn-secondary" onClick={close}>Cancel</button>
+      {busy
+        ? <button type="button" className="btn btn-secondary" onClick={() => abort.current?.abort()}><Square size={14} aria-hidden /> Stop</button>
+        : <button type="button" className="btn btn-primary" disabled={files.length === 0 && !notes.trim()} onClick={() => void extract()}><Sparkles size={16} aria-hidden /> Extract applications</button>}
+    </>
+  );
 
   return (
-    <Modal
-      open={open}
-      size="xl"
-      title={reviewing ? 'Review applications found' : 'Import applications from a file'}
-      onClose={close}
-      footer={reviewing ? (
-        <>
-          <button type="button" className="btn btn-secondary" onClick={() => { setRows(null); setRun(null); setError(''); }} disabled={saving}>Back</button>
-          <button type="button" className="btn btn-primary" disabled={saving || counts.selected === 0} onClick={() => void save()}>
-            {saving ? <Loader2 size={16} className="animate-spin" aria-hidden /> : null}
-            {saving ? 'Saving...' : `Import ${counts.selected} application${counts.selected === 1 ? '' : 's'}`}
-          </button>
-        </>
-      ) : (
-        <>
-          <button type="button" className="btn btn-secondary" onClick={close}>Cancel</button>
-          {busy
-            ? <button type="button" className="btn btn-secondary" onClick={() => abort.current?.abort()}><Square size={14} aria-hidden /> Stop</button>
-            : <button type="button" className="btn btn-primary" disabled={files.length === 0 && !notes.trim()} onClick={() => void extract()}><Sparkles size={16} aria-hidden /> Extract applications</button>}
-        </>
-      )}
-    >
-      {!reviewing ? (
+    <Modal open={open} size="xl" title={title} onClose={close} footer={footer}>
+      {stage === 'extracting' ? (
+        <div className="space-y-3 py-6 text-center">
+          <Loader2 size={28} className="mx-auto animate-spin" aria-hidden />
+          <p role="status" className="text-body-md">{deepProgress.message}</p>
+          {deepProgress.total > 0 && <progress className="mx-auto block w-64" max={deepProgress.total} value={deepProgress.done} aria-label="Parts read" />}
+          <p className="text-label-md font-normal text-on-surface-variant">A long specification is read in parts, which can take several minutes. The applications are already saved.</p>
+        </div>
+      ) : stage === 'details' ? (
+        <CatalogueSummary entries={entries} notes={notesInfo} error={deepError} busy={saving} onReview={(n) => void openDetail(n)} />
+      ) : stage === 'upload' ? (
         <div className="space-y-4">
           <p className="text-body-md text-on-surface-variant">Upload an application inventory, architecture document or any file that lists several applications. Every application found is shown for review before anything is saved. Existing applications are matched by name, so nothing is duplicated.</p>
           <div className="grid gap-2 sm:grid-cols-2">
@@ -134,6 +231,10 @@ export default function BulkImportModal({ open, onClose, onImported }: Props) {
             {run && <ul className="mt-1 list-disc pl-5 text-label-md font-normal text-on-surface-variant">{run.sources.map((s) => <li key={s.file}><strong className="font-medium">{s.file}</strong>: {s.applications} found {s.method === 'table' ? `by column mapping (no AI). ${s.detail ?? ''}` : `by the AI${run.model ? ` (${run.model})` : ''}`}</li>)}</ul>}
             {run?.truncated && <p className="mt-1 text-label-md text-error">The AI's reply was cut off, so the list may be incomplete. Split the file and import it in parts to be sure.</p>}
           </div>
+          <label className="flex items-start gap-3 rounded border border-outline-variant p-3 text-body-md">
+            <input type="checkbox" className="mt-1" checked={deep} onChange={(e) => setDeep(e.target.checked)} />
+            <span><strong className="block font-semibold">Also extract modules, screens, functionalities and technical components</strong>Reads the whole document section by section and builds the detailed knowledge for every application above: screens with fields and rules, functionalities, integrations, database objects, API endpoints and other components. You review the result before it is saved. Takes several minutes for a long document.</span>
+          </label>
           <div className="overflow-x-auto rounded border border-outline-variant">
             <table className="w-full min-w-[820px] text-left text-body-md">
               <thead className="border-b border-outline-variant bg-surface-low text-label-md text-on-surface-variant">
@@ -147,7 +248,7 @@ export default function BulkImportModal({ open, onClose, onImported }: Props) {
                 </tr>
               </thead>
               <tbody className="divide-y divide-outline-variant">
-                {rows.map((r) => {
+                {(rows ?? []).map((r) => {
                   const expanded = open_.has(r.key);
                   const a = r.app;
                   return (
@@ -191,6 +292,18 @@ export default function BulkImportModal({ open, onClose, onImported }: Props) {
           </div>
           {error && <p role="alert" className="rounded border border-error bg-error-container p-3 text-body-md text-error">{error}</p>}
         </div>
+      )}
+      {detailReview && (
+        <ExtractionReview
+          open
+          base={detailReview.plan}
+          initial={stageExtraction(detailReview.plan)}
+          existing={detailReview.existing}
+          model={notesInfo?.model ?? ''}
+          truncated={false}
+          onApply={applyOne}
+          onClose={() => setDetailReview(null)}
+        />
       )}
     </Modal>
   );

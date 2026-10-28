@@ -2,6 +2,7 @@ import * as mammoth from 'mammoth';
 import * as XLSX from 'xlsx';
 import type { GeminiContent } from '@/services/geminiService';
 import { fileWrap } from '@/prompts';
+import { htmlToMarkdown } from './docStructure';
 
 const MAX_FILE_BYTES = 12 * 1024 * 1024;
 const TEXT_EXTENSIONS = new Set(['txt','md','csv','json','xml','yaml','yml','log','sql','graphql','js','ts','tsx','jsx','css','html','vtt','srt']);
@@ -70,6 +71,19 @@ async function extractOfficeText(file: File, ext: string): Promise<string> {
     }).filter(Boolean);
     if (!sheets.some((sheet) => sheet.trim())) throw new Error('No readable rows were found in the spreadsheet.');
     return sheets.join('\n\n');
+  } catch (error) {
+    const detail = error instanceof Error ? error.message : 'Unknown parsing error.';
+    throw new Error(`Could not extract text from ${file.name}. Check that the file is a valid, unencrypted Office document. ${detail}`);
+  }
+}
+
+/** A Word document as Markdown with its headings, lists and tables kept (the plain-text reader flattens tables). */
+export async function docxToMarkdown(file: File): Promise<string> {
+  try {
+    const { value } = await mammoth.convertToHtml({ arrayBuffer: await file.arrayBuffer() }, { convertImage: mammoth.images.imgElement(async () => ({ src: '' })) });
+    const md = htmlToMarkdown(value).trim();
+    if (!md) throw new Error('No readable text was found in the Word document.');
+    return md;
   } catch (error) {
     const detail = error instanceof Error ? error.message : 'Unknown parsing error.';
     throw new Error(`Could not extract text from ${file.name}. Check that the file is a valid, unencrypted Office document. ${detail}`);

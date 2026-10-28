@@ -39,7 +39,7 @@ export default function ApplicationsPage() {
   const [importing, setImporting] = useState(false);
   const [notice, setNotice] = useState('');
 
-  const imported = (r: InventoryImportResult) => setNotice(`Import finished: ${r.created} application${r.created === 1 ? '' : 's'} created, ${r.updated} existing updated, ${r.modulesAdded} module${r.modulesAdded === 1 ? '' : 's'} added${r.skipped ? `, ${r.skipped} skipped` : ''}.`);
+  const imported = (r: InventoryImportResult, details?: string) => setNotice(`Import finished: ${r.created} application${r.created === 1 ? '' : 's'} created, ${r.updated} existing updated, ${r.modulesAdded} module${r.modulesAdded === 1 ? '' : 's'} added${r.skipped ? `, ${r.skipped} skipped` : ''}.${details ? ` ${details}` : ''}`);
 
   const data = useLiveQuery(async () => {
     const [apps, modKeys, scrKeys, fnKeys] = await Promise.all([

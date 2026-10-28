@@ -124,6 +124,7 @@ export async function extractInventory(
         responseSchema: INVENTORY_SCHEMA as unknown as Record<string, unknown>,
         temperature: 0.1,
         maxOutputTokens: 32768,
+        timeoutMs: 300_000,
         signal,
       });
       aiLists.push(normalizeInventory(r.data));

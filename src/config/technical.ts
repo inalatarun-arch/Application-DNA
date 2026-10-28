@@ -215,6 +215,23 @@ export const KIND_META: Record<TechnicalComponentKind, KindMeta> = {
     ],
     definitionLabel: 'Notes',
   },
+  integration: {
+    label: 'Integration',
+    layer: 'integration',
+    icon: Plug,
+    fields: [
+      { key: 'integrationType', label: 'Type', placeholder: 'e.g. REST via middleware, SOAP callback, SFTP batch' },
+      { key: 'source', label: 'Source system' },
+      { key: 'target', label: 'Target system' },
+      { key: 'direction', label: 'Direction', placeholder: 'e.g. Outbound, Inbound, Bidirectional' },
+      { key: 'frequency', label: 'Frequency', placeholder: 'e.g. Event-driven, nightly' },
+      { key: 'payload', label: 'Payload', multiline: true },
+      { key: 'authentication', label: 'Authentication', placeholder: 'e.g. OAuth 2.0 client credentials' },
+      { key: 'errorHandling', label: 'Error handling', multiline: true },
+      { key: 'owner', label: 'Owner' },
+    ],
+    definitionLabel: 'Interface notes',
+  },
   middleware: {
     label: 'Middleware flow',
     layer: 'integration',
@@ -245,7 +262,7 @@ export const KIND_META: Record<TechnicalComponentKind, KindMeta> = {
 export const KIND_ORDER: TechnicalComponentKind[] = [
   'class', 'package', 'method', 'service', 'job', 'cloud', 'server',
   'table', 'view', 'procedure', 'trigger',
-  'rest', 'soap', 'queue', 'middleware', 'api',
+  'integration', 'rest', 'soap', 'queue', 'middleware', 'api',
 ];
 
 export const layerOf = (kind: TechnicalComponentKind): Layer => KIND_META[kind].layer;
