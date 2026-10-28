@@ -8,6 +8,8 @@ import type { Screen } from '@/db/types';
 import { useAutosave } from '@/hooks/useAutosave';
 import SaveStatus from '@/components/ui/SaveStatus';
 import Tabs from '@/components/ui/Tabs';
+import TabPanel from '@/components/ui/TabPanel';
+import TitleInput from '@/components/ui/TitleInput';
 import ConfirmModal from '@/components/ui/ConfirmModal';
 import EmptyState from '@/components/ui/EmptyState';
 import ScreenOverviewTab from './ScreenOverviewTab';
@@ -64,9 +66,8 @@ function ScreenEditor({ screen }: { screen: Screen }) {
     <div className="space-y-6">
       <header className="flex flex-wrap items-start justify-between gap-4">
         <div className="min-w-0 flex-1">
-          <label htmlFor="screen-name" className="sr-only">Screen name</label>
-          <input id="screen-name" className="input text-headline-md" value={draft.name} onChange={(e) => update({ name: e.target.value })} placeholder="Screen name" />
-          <div className="mt-2"><SaveStatus state={state} /></div>
+          <TitleInput id="screen-name" label="Screen name" value={draft.name} onChange={(e) => update({ name: e.target.value })} placeholder="Screen name" />
+          <div className="mt-1"><SaveStatus state={state} /></div>
         </div>
         <button type="button" className="btn btn-secondary" onClick={() => setConfirmDelete(true)}>
           <Trash2 size={16} aria-hidden />
@@ -87,7 +88,7 @@ function ScreenEditor({ screen }: { screen: Screen }) {
         ]}
       />
 
-      <div role="tabpanel" id={`panel-${tab}`} aria-labelledby={`tab-${tab}`}>
+      <TabPanel id={tab}>
         {tab === 'overview' && <ScreenOverviewTab screen={draft} update={update} />}
         {tab === 'ui' && <ScreenMediaTab screen={draft} />}
         {tab === 'logic' && <BusinessLogicTab screen={draft} update={update} />}
@@ -97,7 +98,7 @@ function ScreenEditor({ screen }: { screen: Screen }) {
             <LinkedComponentsPanel target="screen" targetId={screen.id} applicationId={screen.applicationId} />
           </Section>
         )}
-      </div>
+      </TabPanel>
 
       <ConfirmModal
         open={confirmDelete}

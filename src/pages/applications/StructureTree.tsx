@@ -1,9 +1,10 @@
 import { useMemo, useState } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
-import { ChevronDown, ChevronRight, FolderTree, Plus, Search } from 'lucide-react';
+import { ChevronRight, FolderTree, Plus, Search } from 'lucide-react';
 import type { AppModule, Application, Screen } from '@/db/types';
 import { createModule, createScreen } from '@/db/catalog';
 import QuickCreateModal from '@/components/ui/QuickCreateModal';
+import Collapse from '@/components/ui/Collapse';
 import { cn } from '@/lib/cn';
 
 interface Props {
@@ -14,8 +15,10 @@ interface Props {
 
 const linkClass = (isActive: boolean) =>
   cn(
-    'block truncate rounded px-2 py-1.5 text-body-md transition-colors',
-    isActive ? 'bg-surface-container font-semibold text-on-surface' : 'text-on-surface-variant hover:bg-surface-container hover:text-on-surface',
+    'relative block truncate rounded px-2 py-1.5 text-body-md transition-colors',
+    isActive
+      ? 'bg-primary-container font-semibold text-on-surface before:absolute before:inset-y-1.5 before:left-0 before:w-[3px] before:rounded-r before:bg-primary'
+      : 'text-on-surface-variant hover:bg-surface-container hover:text-on-surface',
   );
 
 /** Application → Modules → Screens navigation with filter and inline creation. */
@@ -91,7 +94,7 @@ export default function StructureTree({ app, modules, screens }: Props) {
             <div key={m.id}>
               <div className="flex items-center">
                 <button type="button" className="icon-btn h-8 w-7 shrink-0" onClick={() => toggle(m.id)} aria-expanded={open} aria-label={`${open ? 'Collapse' : 'Expand'} ${m.name}`}>
-                  {open ? <ChevronDown size={14} aria-hidden /> : <ChevronRight size={14} aria-hidden />}
+                  <ChevronRight size={14} aria-hidden className={cn('transition-transform duration-200', open && 'rotate-90')} />
                 </button>
                 <NavLink to={`${base}/modules/${m.id}`} className={({ isActive }) => cn(linkClass(isActive), 'min-w-0 flex-1 font-medium')}>
                   {m.name}
@@ -100,7 +103,7 @@ export default function StructureTree({ app, modules, screens }: Props) {
                   <Plus size={14} aria-hidden />
                 </button>
               </div>
-              {open && (
+              <Collapse open={open}>
                 <ul className="ml-7 border-l border-outline-variant pl-1">
                   {list.length === 0 && <li className="px-2 py-1 text-label-md font-normal text-on-surface-variant">No screens</li>}
                   {list.map((s) => (
@@ -109,7 +112,7 @@ export default function StructureTree({ app, modules, screens }: Props) {
                     </li>
                   ))}
                 </ul>
-              )}
+              </Collapse>
             </div>
           );
         })}

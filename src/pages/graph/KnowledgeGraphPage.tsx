@@ -131,7 +131,7 @@ export default function KnowledgeGraphPage() {
 
             <div role="group" aria-label="Layer" className="flex rounded border border-outline-variant">
               {PRESETS.map((p) => (
-                <button key={p.id} type="button" aria-pressed={preset === p.id} onClick={() => choosePreset(p.id)} className={cn('px-3 py-2 text-body-md first:rounded-l last:rounded-r', preset === p.id ? 'bg-primary text-on-primary' : 'text-on-surface-variant hover:bg-surface-container')}>
+                <button key={p.id} type="button" aria-pressed={preset === p.id} onClick={() => choosePreset(p.id)} className={cn('px-3 py-2 text-body-md first:rounded-l last:rounded-r', preset === p.id ? 'bg-primary-container font-semibold text-on-surface' : 'text-on-surface-variant hover:bg-surface-container')}>
                   {p.label}
                 </button>
               ))}
@@ -161,7 +161,7 @@ export default function KnowledgeGraphPage() {
             </label>
           </div>
 
-          <div className="relative h-[66dvh] min-h-[440px] overflow-hidden rounded border border-outline-variant bg-surface-lowest">
+          <div className="relative h-[66dvh] min-h-[440px] overflow-hidden rounded-lg border border-outline-variant bg-surface-lowest">
             <GraphCanvas
               ref={graphRef}
               nodes={filtered.nodes}

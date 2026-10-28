@@ -20,6 +20,7 @@ import { describeError, isGeminiError } from '@/services/geminiService';
 import { generateFdd, generateTdd, reviseDocument, type DocRun } from '@/services/documentAI';
 import { generateStories } from '@/services/storyAI';
 import PageSkeleton from '@/components/ui/Skeleton';
+import EmptyState from '@/components/ui/EmptyState';
 
 const esc = (v: string) => v.replace(/\|/g, '\\|').replace(/\n/g, ' ');
 const LABEL: Record<DeliveryDocumentType, string> = { frd: 'FDD / FRD', tdd: 'TDD' };
@@ -222,7 +223,7 @@ export default function StudioPage() {
       )}
       {error && <div role="alert" className="mb-4 rounded border border-error bg-error-container p-3 text-body-md text-error">{error}</div>}
 
-      {!project ? <div className="card">Select a project to begin.</div> : (
+      {!project ? <EmptyState icon={FileText} title="Pick a project to start" description="Documents are generated from a project's linked applications, requirements and approvals. Choose one above, or create a project first." /> : (
         <div className="grid gap-4 xl:grid-cols-[1fr_320px]">
           <section className="card space-y-3">
             <div className="flex flex-wrap items-center justify-between gap-2">

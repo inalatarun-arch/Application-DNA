@@ -22,7 +22,7 @@ function saveLink(id: string, kind: 'site' | 'repo', value: string): void {
   try { if (value.trim()) localStorage.setItem(linkKey(id, kind), value.trim()); else localStorage.removeItem(linkKey(id, kind)); } catch { /* storage unavailable */ }
 }
 
-export default function ApplicationAiIngest({ applicationId }: { applicationId: string }) {
+export default function ApplicationAiIngest({ applicationId, embedded }: { applicationId: string; embedded?: boolean }) {
   const app = useLiveQuery(() => db.applications.get(applicationId), [applicationId]);
   const modules = useLiveQuery(() => db.modules.where('applicationId').equals(applicationId).toArray(), [applicationId]);
   const screens = useLiveQuery(() => db.screens.where('applicationId').equals(applicationId).toArray(), [applicationId]);
@@ -95,7 +95,7 @@ export default function ApplicationAiIngest({ applicationId }: { applicationId: 
   };
 
   return (
-    <Section title="AI application capture" description="Describe the application in plain English and/or attach screenshots or documents. The AI turns the evidence into structured modules, screens, business logic, functionalities and technical components. You review the result, change it by hand or by instruction, and only then is it saved.">
+    <Section bare={embedded} title="AI application capture" description="Describe the application in plain English and/or attach screenshots or documents. The AI turns the evidence into structured modules, screens, business logic, functionalities and technical components. You review the result, change it by hand or by instruction, and only then is it saved.">
       <div className="space-y-4">
         <textarea className="input min-h-[150px]" value={text} onChange={(e) => setText(e.target.value)} placeholder="Example: Procurement users open Supplier Maintenance from Payables. They can create a supplier, validate Tax ID, save the record, and submit it for approval. Duplicate Tax IDs must be blocked. The screen calls the supplier API and writes to the supplier master table." />
         <details className="rounded border border-outline-variant" open={!!siteUrl || !!repoUrl}>
