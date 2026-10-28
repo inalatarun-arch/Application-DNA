@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "eih-claude-bridge": {
+      "command": "node",
+      "args": ["claude-bridge/bin/mcp.mjs"]
+    }
+  }
+}

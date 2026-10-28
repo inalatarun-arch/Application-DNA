@@ -13,6 +13,7 @@ npm run build      # type-check + production build into dist/
 ## Notes
 - Routing uses `HashRouter` and `base: './'`, so `dist/` works on any static host or sub-path with no rewrite rules.
 - Choose the AI provider in Settings > AI configuration: Google Gemini, Anthropic Claude, or any OpenAI-compatible service (OpenAI, OpenRouter, Groq, Mistral, local servers; set the base URL). Each provider has its own encrypted key, live model list and model-per-feature settings. Calls go straight from the browser to the provider you pick.
+- **No API key? Use Claude Code.** `claude-bridge/` is a small local server (and Claude Code MCP server) that answers every AI feature through your Claude Code login. Settings > AI configuration > OpenAI or compatible > **Use Claude Code bridge**. See [claude-bridge/README.md](claude-bridge/README.md).
 - Each key lives in an encrypted vault (AES-256-GCM, passphrase or device mode) in Settings > AI configuration. For Gemini only, you can instead deploy the server proxy in `proxy/` (see `proxy/README.md`) so no key reaches the browser.
 - All Gemini traffic goes through `src/services/geminiService.ts`.
 - The production build adds a Content-Security-Policy (`vite.config.ts`) that only lets the app's own bundled scripts run. If a new feature loads a script, font or frame from another site, it must be added there on purpose. Check the browser console for "Content Security Policy" messages after a deploy.

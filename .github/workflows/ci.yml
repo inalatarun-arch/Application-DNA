@@ -24,6 +24,7 @@ jobs:
       # Fails the build when a production dependency has a known high or critical vulnerability.
       - run: npm audit --omit=dev --audit-level=high
       - run: npm test
+      - run: npm run test:bridge
       # Lint results are reported but do not fail the build yet.
       - run: npm run lint
         continue-on-error: true

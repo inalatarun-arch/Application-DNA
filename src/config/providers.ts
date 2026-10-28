@@ -72,7 +72,7 @@ export const PROVIDERS: Record<ProviderId, ProviderInfo> = {
     minKeyLength: 8,
     readsPdf: false,
     readsImages: true,
-    note: 'Works with OpenAI and any service that follows the OpenAI chat API (OpenRouter, Groq, Mistral, Azure OpenAI v1 endpoints, local servers). Change the base URL to point at one. PDFs are not sent; use text, Word or Excel files.',
+    note: 'Works with OpenAI and any service that follows the OpenAI chat API (OpenRouter, Groq, Mistral, Azure OpenAI v1 endpoints, local servers). Change the base URL to point at one. PDFs are not sent; use text, Word or Excel files. A local address (such as the Claude Code bridge) needs no key.',
   },
 };
 
@@ -116,6 +116,19 @@ export function cleanBaseUrl(raw: string): string {
   if (u.protocol === 'https:') return v;
   if (u.protocol === 'http:' && ['localhost', '127.0.0.1', '[::1]'].includes(u.hostname)) return v;
   return '';
+}
+
+/** Where the Claude Code bridge (`claude-bridge/`) listens by default. */
+export const CLAUDE_BRIDGE_URL = 'http://127.0.0.1:8787/v1';
+
+/** True for an address on this computer. Local servers (Ollama, the Claude Code bridge) need no API key. */
+export function isLocalUrl(url: string): boolean {
+  try {
+    const u = new URL(url);
+    return u.protocol === 'http:' && ['localhost', '127.0.0.1', '[::1]'].includes(u.hostname);
+  } catch {
+    return false;
+  }
 }
 
 /** The host part of an address, for showing the user where a key is about to be sent. */

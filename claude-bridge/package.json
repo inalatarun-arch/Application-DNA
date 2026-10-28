@@ -1,0 +1,13 @@
+{
+  "name": "eih-claude-bridge",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Local OpenAI-compatible endpoint that answers through your Claude Code login, so the app needs no API key.",
+  "type": "module",
+  "engines": { "node": ">=20" },
+  "scripts": {
+    "start": "node bin/serve.mjs",
+    "mcp": "node bin/mcp.mjs",
+    "test": "node --test test/bridge.check.mjs"
+  }
+}
