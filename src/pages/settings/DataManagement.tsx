@@ -36,6 +36,8 @@ export default function DataManagement() {
   const fileInput = useRef<HTMLInputElement>(null);
   const [includeKey, setIncludeKey] = useState(false);
   const [restoreKey, setRestoreKey] = useState(false);
+  const [exportPass, setExportPass] = useState('');
+  const [restorePass, setRestorePass] = useState('');
   const [busy, setBusy] = useState(false);
   const [pending, setPending] = useState<{ name: string; backup: BackupFile } | null>(null);
   const [message, setMessage] = useState<Message>(null);
@@ -50,8 +52,9 @@ export default function DataManagement() {
     setBusy(true);
     setMessage(null);
     try {
-      const { filename, counts: exported } = await exportDatabaseToFile({ includeApiKey: includeKey });
+      const { filename, counts: exported } = await exportDatabaseToFile({ includeApiKey: includeKey, passphrase: exportPass });
       const total = Object.values(exported).reduce((a, b) => a + b, 0);
+      setExportPass('');
       setMessage({ tone: 'ok', text: `Exported ${total} records to ${filename}.` });
     } catch (err) {
       setMessage({ tone: 'error', text: `Export failed: ${err instanceof Error ? err.message : 'unknown error'}` });
@@ -67,6 +70,7 @@ export default function DataManagement() {
     try {
       setPending({ name: file.name, backup: await readBackupFile(file) });
       setRestoreKey(false);
+      setRestorePass('');
     } catch (err) {
       setMessage({ tone: 'error', text: err instanceof BackupError ? err.message : 'Could not read that file.' });
     } finally {
@@ -78,10 +82,11 @@ export default function DataManagement() {
     if (!pending) return;
     setBusy(true);
     try {
-      const restored = await restoreBackup(pending.backup, { restoreApiKey: restoreKey });
+      const restored = await restoreBackup(pending.backup, { restoreApiKey: restoreKey, passphrase: restorePass });
       const total = Object.values(restored).reduce((a, b) => a + b, 0);
       setMessage({ tone: 'ok', text: `Restored ${total} records from ${pending.name}.` });
       setPending(null);
+      setRestorePass('');
     } catch (err) {
       setMessage({ tone: 'error', text: `Restore failed and no changes were applied: ${err instanceof Error ? err.message : 'unknown error'}` });
     } finally {
@@ -122,10 +127,21 @@ export default function DataManagement() {
             <input type="checkbox" className="mt-1" checked={includeKey} onChange={(e) => setIncludeKey(e.target.checked)} />
             <span>
               Include my AI API keys
-              <span className="field-hint block">Off by default. Anyone with the file could use the key.</span>
+              <span className="field-hint block">Off by default. The keys are encrypted in the file with a passphrase you choose; without it they cannot be read.</span>
             </span>
           </label>
-          <button type="button" className="btn btn-primary mt-4" onClick={onExport} disabled={busy}>
+          {includeKey && (
+            <input
+              type="password"
+              aria-label="Backup passphrase"
+              className="input mt-2"
+              placeholder="Backup passphrase (8+ characters)"
+              autoComplete="new-password"
+              value={exportPass}
+              onChange={(e) => setExportPass(e.target.value)}
+            />
+          )}
+          <button type="button" className="btn btn-primary mt-4" onClick={onExport} disabled={busy || (includeKey && exportPass.length < 8)}>
             <Download size={16} aria-hidden />
             Export database
           </button>
@@ -159,14 +175,30 @@ export default function DataManagement() {
             {Object.values(pendingCounts).reduce((a, b) => a + b, 0)} records. Your current data will be overwritten and cannot be recovered
             unless you have exported it.
           </p>
-          {pending.backup.secrets && Object.keys(pending.backup.secrets).length > 0 && (
-            <label className="mt-3 flex items-center gap-2 text-body-md">
-              <input type="checkbox" checked={restoreKey} onChange={(e) => setRestoreKey(e.target.checked)} />
-              Also restore the API keys stored in this backup
-            </label>
+          {(pending.backup.secretsEnc || (pending.backup.secrets && Object.keys(pending.backup.secrets).length > 0)) && (
+            <>
+              <label className="mt-3 flex items-center gap-2 text-body-md">
+                <input type="checkbox" checked={restoreKey} onChange={(e) => setRestoreKey(e.target.checked)} />
+                Also restore the API keys stored in this backup
+              </label>
+              {restoreKey && pending.backup.secretsEnc && (
+                <input
+                  type="password"
+                  aria-label="Backup passphrase"
+                  className="input mt-2 max-w-sm"
+                  placeholder="Backup passphrase"
+                  autoComplete="current-password"
+                  value={restorePass}
+                  onChange={(e) => setRestorePass(e.target.value)}
+                />
+              )}
+              {restoreKey && !pending.backup.secretsEnc && (
+                <p className="field-hint mt-1">This backup holds its keys as plain text (made by an older version). Delete the file once restored.</p>
+              )}
+            </>
           )}
           <div className="mt-4 flex gap-2">
-            <button type="button" className="btn btn-primary" onClick={onRestore} disabled={busy}>Replace local data</button>
+            <button type="button" className="btn btn-primary" onClick={onRestore} disabled={busy || (restoreKey && !!pending.backup.secretsEnc && !restorePass)}>Replace local data</button>
             <button type="button" className="btn btn-secondary" onClick={() => setPending(null)} disabled={busy}>Cancel</button>
           </div>
         </div>

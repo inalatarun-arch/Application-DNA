@@ -2,8 +2,8 @@ import { useState } from 'react';
 import { AlertTriangle, Eye, EyeOff, KeyRound, Loader2, Lock, ShieldCheck, Trash2, Unlock, Zap } from 'lucide-react';
 import { useVault } from './useVault';
 import { deleteVault, findLegacyKeys, lock, readLegacyKey, saveKey, unlock, wipeLegacyKeys, type LegacyKeyHit, type VaultMode } from '@/lib/vault';
-import { PROVIDERS, type ProviderId } from '@/config/providers';
-import { getBaseUrl, getProxy, setBaseUrl, setProxy } from '@/services/apiKeyStore';
+import { PROVIDERS, cleanBaseUrl, hostOf, type ProviderId } from '@/config/providers';
+import { getBaseUrl, getProxy, hasProxyToken, setBaseUrl, setProxy } from '@/services/apiKeyStore';
 import { testConnection, type ConnectionTestResult } from '@/services/geminiService';
 import { useAiSettings } from '@/db/settings';
 import { cn } from '@/lib/cn';
@@ -30,7 +30,7 @@ export default function KeyVaultCard({ provider = 'gemini' }: { provider?: Provi
   const [testing, setTesting] = useState(false);
   const [legacy, setLegacy] = useState<LegacyKeyHit[]>(() => (isGemini ? findLegacyKeys() : []));
   const [proxyUrl, setProxyUrl] = useState(() => getProxy().url);
-  const [proxyToken, setProxyToken] = useState(() => getProxy().token);
+  const [proxyToken, setProxyToken] = useState('');
 
   const showForm = !vault.hasVault || replacing;
   const proxyOn = isGemini && !!getProxy().url;
@@ -89,8 +89,9 @@ export default function KeyVaultCard({ provider = 'gemini' }: { provider?: Provi
   });
 
   const onProxy = () => run(async () => {
-    setProxy(proxyUrl, proxyToken);
-    setMsg({ ok: true, text: proxyUrl.trim() ? 'Proxy saved. AI requests now go through it and no key is needed in this browser.' : 'Proxy removed.' });
+    await setProxy(proxyUrl, proxyToken);
+    setProxyToken('');
+    setMsg({ ok: true, text: proxyUrl.trim() ? 'Proxy saved. The access token is stored encrypted. AI requests now go through the proxy and no key is needed in this browser.' : 'Proxy removed.' });
   });
 
   const modePicker = (
@@ -151,7 +152,11 @@ export default function KeyVaultCard({ provider = 'gemini' }: { provider?: Provi
           <label htmlFor={`${provider}-base`} className="field-label">Base URL</label>
           <div className="flex gap-2">
             <input id={`${provider}-base`} className="input flex-1 font-mono" value={baseUrl} onChange={(e) => setBaseUrlDraft(e.target.value)} spellCheck={false} placeholder={info.defaultBaseUrl} />
-            <button type="button" className="btn btn-secondary" disabled={busy} onClick={() => void run(async () => { setBaseUrl(provider, baseUrl); setBaseUrlDraft(getBaseUrl(provider)); setMsg({ ok: true, text: 'Address saved. Press Refresh next to the model list to load that service\'s models.' }); })}>Save address</button>
+            <button type="button" className="btn btn-secondary" disabled={busy} onClick={() => void run(async () => {
+              const next = cleanBaseUrl(baseUrl);
+              if (next && next !== getBaseUrl(provider) && hostOf(next) !== hostOf(info.defaultBaseUrl)
+                && !window.confirm(`Your ${info.short} API key will be sent to ${hostOf(next)}. Only continue if you trust that service.`)) return;
+              setBaseUrl(provider, baseUrl); setBaseUrlDraft(getBaseUrl(provider)); setMsg({ ok: true, text: 'Address saved. Press Refresh next to the model list to load that service\'s models.' }); })}>Save address</button>
           </div>
           <p className="field-hint">Leave as is for OpenAI. For OpenRouter, Groq, Mistral or a local server, paste its OpenAI-style address (it usually ends in /v1). If your server needs no key, enter any placeholder of 8 or more characters.</p>
         </div>
@@ -197,15 +202,15 @@ export default function KeyVaultCard({ provider = 'gemini' }: { provider?: Provi
         <summary className="cursor-pointer px-4 py-2 text-body-md font-medium">Keep the key off this device with a server proxy</summary>
         <div className="space-y-3 border-t border-outline-variant p-4">
           <p className="text-label-md font-normal text-on-surface-variant">
-            Browser encryption protects a stored key, but any code running in this page could still use it while it is unlocked. The only way to keep the key out of the browser entirely is a small server that holds it and forwards requests to Google. Enter its address (it must expose the Gemini <code>/v1beta</code> paths) and an optional access token. The folder <code>proxy/</code> in this project has a ready-made Cloudflare Worker.
+            Browser encryption protects a stored key, but any code running in this page could still use it while it is unlocked. The only way to keep the key out of the browser entirely is a small server that holds it and forwards requests to Google. Enter its address (it must expose the Gemini <code>/v1beta</code> paths) and the access token you set on the server. The folder <code>proxy/</code> in this project has a ready-made Cloudflare Worker.
           </p>
           <div>
             <label htmlFor="proxy-url" className="field-label">Proxy URL</label>
             <input id="proxy-url" className="input font-mono" placeholder="https://your-proxy.example.workers.dev" value={proxyUrl} onChange={(e) => setProxyUrl(e.target.value)} spellCheck={false} />
           </div>
           <div>
-            <label htmlFor="proxy-token" className="field-label">Access token (optional)</label>
-            <input id="proxy-token" type="password" className="input font-mono" autoComplete="off" value={proxyToken} onChange={(e) => setProxyToken(e.target.value)} />
+            <label htmlFor="proxy-token" className="field-label">Access token</label>
+            <input id="proxy-token" type="password" className="input font-mono" autoComplete="off" placeholder={hasProxyToken() ? 'Saved (hidden). Leave blank to keep it.' : 'The PROXY_TOKEN value from your server'} value={proxyToken} onChange={(e) => setProxyToken(e.target.value)} />
           </div>
           <button type="button" className="btn btn-secondary" disabled={busy} onClick={() => void onProxy()}>Save proxy</button>
         </div>

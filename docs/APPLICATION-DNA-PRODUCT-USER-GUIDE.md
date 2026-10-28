@@ -1204,24 +1204,28 @@ The successful model can be reported to the user.
 
 # 31. API key and privacy model
 
-The current README states that the Gemini API key is stored in browser localStorage and not in IndexedDB.
+Each AI provider key (Gemini, Claude, OpenAI-compatible) is kept in an encrypted vault in the browser. It is never stored as plain text and is never part of the source code or the build.
 
-Gemini requests go directly to Google's API.
+- **Passphrase mode (default, recommended):** the key is encrypted with AES-256-GCM using a key derived from your passphrase (PBKDF2-SHA256, 600,000 iterations). The passphrase is never stored; you enter it once per browser session.
+- **Device mode:** the key is encrypted with a non-extractable key held by the browser and unlocks automatically. This protects against someone copying the stored data, but not against code running inside the page, so the app ships with a Content-Security-Policy that only allows its own bundled scripts.
+- **Server proxy (Gemini only, optional):** a small Cloudflare Worker (`proxy/`) holds the key so it never reaches the browser. The proxy requires an access token, answers only the listed origin, allows only the Gemini calls the app makes, and should be given a rate limit. The token itself is stored encrypted in the browser vault.
 
-Users should therefore:
+Requests go directly from the browser to the provider you choose. For an OpenAI-compatible service the app asks you to confirm the host before your key is sent to a new address.
 
-- Use an appropriately restricted key.
+Users should still:
+
+- Use an appropriately restricted key with a spending limit.
 - Avoid putting unrelated production secrets into the repository.
-- Avoid sharing backups containing the API key.
 - Understand that browser-local storage is not the same as an enterprise secret vault.
+- Treat anything you upload or paste as content that is sent to the AI provider you selected.
 
 ## Backup behavior
 
-The database export excludes the Gemini key by default.
+The database export excludes API keys by default.
 
-There is an explicit option to include it.
+If you choose to include them, they are encrypted in the file with a backup passphrase you enter at export time (AES-256-GCM, PBKDF2-SHA256). Without the passphrase the keys cannot be read. The passphrase is needed again to restore them. Backups made by older versions may hold keys as plain text; delete those files after restoring.
 
-If a key is included, anyone obtaining that backup could potentially use the key.
+When restoring, the app checks the file before replacing local data: it limits the file size, removes unsafe object keys, and requires every record to have a valid identifier. Only restore backups you made yourself or trust.
 
 ---
 
@@ -1670,7 +1674,7 @@ The current browser product does not automatically synchronize with Jira, Conflu
 
 ## Security
 
-The Gemini API key is stored in browser localStorage. This should not be described as enterprise-grade secret-vault storage.
+API keys are stored encrypted in the browser (see section 31), with the optional Gemini server proxy as the stronger option. Browser storage should still not be described as enterprise-grade secret-vault storage.
 
 ## Document formats
 

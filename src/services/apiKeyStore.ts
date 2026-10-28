@@ -22,7 +22,8 @@ import {
 } from '@/lib/vault';
 
 const PROXY_URL = 'eih.gemini.proxyUrl';
-const PROXY_TOKEN = 'eih.gemini.proxyToken';
+/** Older versions kept the proxy token here in plain text. It is moved into the encrypted vault at start-up. */
+const LEGACY_PROXY_TOKEN = 'eih.gemini.proxyToken';
 const LEGACY_PLAINTEXT_KEY = 'eih.gemini.apiKey';
 const CHANGE_EVENT = 'eih:apikey-changed';
 const ACTIVE_PROVIDER = 'eih.ai.provider';
@@ -87,17 +88,36 @@ export interface ProxyConfig {
 }
 
 export function getProxy(): ProxyConfig {
-  return { url: read(PROXY_URL).replace(/\/+$/, ''), token: read(PROXY_TOKEN) };
+  let token = '';
+  try {
+    token = getKey('proxy');
+  } catch {
+    /* no token saved */
+  }
+  return { url: read(PROXY_URL).replace(/\/+$/, ''), token };
 }
 
-export function setProxy(url: string, token: string): void {
+/** True when a proxy access token is saved (the token itself is never shown again). */
+export function hasProxyToken(): boolean {
+  return getVaultSnapshot('proxy').hasVault;
+}
+
+/**
+ * Saves the proxy address and, optionally, its access token. The token is encrypted in the vault, not stored as
+ * plain text. Pass an empty token to keep the one already saved; clearing the address removes both.
+ */
+export async function setProxy(url: string, token: string): Promise<void> {
   const clean = url.trim().replace(/\/+$/, '');
   if (clean && !/^https:\/\//i.test(clean)) throw new Error('The proxy URL must start with https://');
   try {
-    if (clean) localStorage.setItem(PROXY_URL, clean);
-    else localStorage.removeItem(PROXY_URL);
-    if (clean && token.trim()) localStorage.setItem(PROXY_TOKEN, token.trim());
-    else localStorage.removeItem(PROXY_TOKEN);
+    if (!clean) {
+      localStorage.removeItem(PROXY_URL);
+      await deleteVault('proxy');
+      return;
+    }
+    if (token.trim()) await saveKey(token.trim(), 'device', undefined, 'proxy', 8);
+    else if (!hasProxyToken()) throw new Error('The proxy requires an access token. Enter the same token you set as PROXY_TOKEN on the server.');
+    localStorage.setItem(PROXY_URL, clean);
   } finally {
     window.dispatchEvent(new Event(CHANGE_EVENT));
   }
@@ -128,7 +148,7 @@ export function subscribeApiKey(listener: () => void): () => void {
   if (typeof window === 'undefined') return () => undefined;
   const offVault = subscribeVault(listener);
   const onStorage = (e: StorageEvent) => {
-    if (e.key === PROXY_URL || e.key === PROXY_TOKEN || e.key === ACTIVE_PROVIDER || e.key === null) listener();
+    if (e.key === PROXY_URL || e.key === ACTIVE_PROVIDER || e.key === null) listener();
   };
   window.addEventListener(CHANGE_EVENT, listener);
   window.addEventListener('storage', onStorage);
@@ -165,6 +185,15 @@ export async function initKeyStore(): Promise<KeyStoreInit> {
     }
   } catch {
     /* leave the old key untouched; the settings panel offers a manual import */
+  }
+  try {
+    const oldToken = read(LEGACY_PROXY_TOKEN);
+    if (oldToken) {
+      if (!getVaultSnapshot('proxy').hasVault) await saveKey(oldToken, 'device', undefined, 'proxy', 8);
+      if (getVaultSnapshot('proxy').hasVault) localStorage.removeItem(LEGACY_PROXY_TOKEN);
+    }
+  } catch {
+    /* the old token stays where it was until the next start */
   }
   await tryAutoUnlock();
   return { migrated };

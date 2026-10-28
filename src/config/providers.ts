@@ -105,7 +105,24 @@ export interface ModelInfo {
 export function cleanBaseUrl(raw: string): string {
   const v = raw.trim().replace(/\/+$/, '');
   if (!v) return '';
-  if (/^https:\/\//i.test(v)) return v;
-  if (/^http:\/\/(localhost|127\.0\.0\.1|\[::1\])(:\d+)?(\/|$)/i.test(v)) return v;
+  let u: URL;
+  try {
+    u = new URL(v);
+  } catch {
+    return '';
+  }
+  // Credentials in the address would be sent along with every request and shown in logs.
+  if (u.username || u.password) return '';
+  if (u.protocol === 'https:') return v;
+  if (u.protocol === 'http:' && ['localhost', '127.0.0.1', '[::1]'].includes(u.hostname)) return v;
   return '';
+}
+
+/** The host part of an address, for showing the user where a key is about to be sent. */
+export function hostOf(url: string): string {
+  try {
+    return new URL(url).host;
+  } catch {
+    return url;
+  }
 }

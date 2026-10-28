@@ -7,6 +7,7 @@ on:
 
 permissions:
   contents: write
+  actions: write
 
 jobs:
   lock:
@@ -27,4 +28,8 @@ jobs:
             git add package-lock.json
             git commit -m "Update package-lock.json"
             git push
+            # Pushes made with the built-in token do not start other workflows, so start the deploy directly.
+            gh workflow run deploy.yml --ref "${GITHUB_REF_NAME}"
           fi
+        env:
+          GH_TOKEN: ${{ github.token }}

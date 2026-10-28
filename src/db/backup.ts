@@ -1,6 +1,8 @@
 import { db, DB_SCHEMA_VERSION } from './db';
 import { getApiKey, setApiKey } from '@/services/apiKeyStore';
 import { PROVIDER_IDS, type ProviderId } from '@/config/providers';
+import { decryptSecrets, encryptSecrets, isEncryptedSecrets, type EncryptedSecrets } from '@/lib/backupCrypto';
+import { MAX_BACKUP_BYTES, UnsafeImportError, cleanRows } from '@/lib/sanitizeImport';
 
 export const BACKUP_FORMAT = 'eih-backup';
 
@@ -10,7 +12,9 @@ export interface BackupFile {
   schemaVersion: number;
   exportedAt: string;
   tables: Record<string, unknown[]>;
-  /** Present only when the user opted in at export time. */
+  /** Present only when the user opted in at export time. Encrypted with a backup passphrase. */
+  secretsEnc?: EncryptedSecrets;
+  /** Plain-text keys. Only ever read from backups made by older versions; never written. */
   secrets?: { geminiApiKey?: string; anthropicApiKey?: string; openaiApiKey?: string };
 }
 
@@ -27,7 +31,7 @@ export type TableCounts = Record<string, number>;
 
 const isRecord = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null && !Array.isArray(v);
 
-export async function buildBackup(options: { includeApiKey: boolean }): Promise<BackupFile> {
+export async function buildBackup(options: { includeApiKey: boolean; passphrase?: string }): Promise<BackupFile> {
   const tables: Record<string, unknown[]> = {};
   await db.transaction('r', db.tables, async () => {
     for (const table of db.tables) tables[table.name] = await table.toArray();
@@ -41,12 +45,15 @@ export async function buildBackup(options: { includeApiKey: boolean }): Promise<
     tables,
   };
   if (options.includeApiKey) {
-    const secrets: NonNullable<BackupFile['secrets']> = {};
+    const secrets: Record<string, string> = {};
     for (const p of PROVIDER_IDS) {
       const key = getApiKey(p);
       if (key) secrets[SECRET_FIELD[p]] = key;
     }
-    if (Object.keys(secrets).length) backup.secrets = secrets;
+    if (Object.keys(secrets).length) {
+      if (!options.passphrase) throw new BackupError('Enter a passphrase to protect the API keys in the backup.');
+      backup.secretsEnc = await encryptSecrets(secrets, options.passphrase);
+    }
   }
   return backup;
 }
@@ -56,7 +63,7 @@ export function countRows(backup: Pick<BackupFile, 'tables'>): TableCounts {
 }
 
 /** Triggers a browser download of the backup. Returns the file name. */
-export async function exportDatabaseToFile(options: { includeApiKey: boolean }): Promise<{ filename: string; counts: TableCounts }> {
+export async function exportDatabaseToFile(options: { includeApiKey: boolean; passphrase?: string }): Promise<{ filename: string; counts: TableCounts }> {
   const backup = await buildBackup(options);
   const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
   const stamp = backup.exportedAt.replace(/[:.]/g, '-').slice(0, 19);
@@ -76,6 +83,9 @@ export async function exportDatabaseToFile(options: { includeApiKey: boolean }):
 
 /** Parses and validates a backup file without touching the database. */
 export async function readBackupFile(file: File): Promise<BackupFile> {
+  if (file.size > MAX_BACKUP_BYTES) {
+    throw new BackupError(`This file is larger than ${Math.round(MAX_BACKUP_BYTES / 1024 / 1024)} MB, which is too big for a valid backup.`);
+  }
   let parsed: unknown;
   try {
     parsed = JSON.parse(await file.text());
@@ -99,13 +109,12 @@ export async function readBackupFile(file: File): Promise<BackupFile> {
     const rows = parsed.tables[table.name];
     if (rows === undefined) continue;
     if (!Array.isArray(rows)) throw new BackupError(`Table "${table.name}" in the backup is not a list.`);
-    const pk = table.schema.primKey.name;
-    rows.forEach((row, i) => {
-      if (!isRecord(row) || typeof row[pk] !== 'string' || !row[pk]) {
-        throw new BackupError(`Table "${table.name}", row ${i + 1}: missing "${pk}".`);
-      }
-    });
-    tables[table.name] = rows;
+    try {
+      tables[table.name] = cleanRows(table.name, rows, table.schema.primKey.name);
+    } catch (err) {
+      if (err instanceof UnsafeImportError) throw new BackupError(err.message);
+      throw err;
+    }
   }
 
   let secrets: BackupFile['secrets'];
@@ -118,6 +127,8 @@ export async function readBackupFile(file: File): Promise<BackupFile> {
     if (Object.keys(found).length) secrets = found;
   }
 
+  const secretsEnc = isEncryptedSecrets(parsed.secretsEnc) ? parsed.secretsEnc : undefined;
+
   return {
     format: BACKUP_FORMAT,
     backupVersion: 1,
@@ -125,11 +136,22 @@ export async function readBackupFile(file: File): Promise<BackupFile> {
     exportedAt: typeof parsed.exportedAt === 'string' ? parsed.exportedAt : '',
     tables,
     secrets,
+    secretsEnc,
   };
 }
 
 /** Replaces ALL local data with the backup, atomically. */
-export async function restoreBackup(backup: BackupFile, options: { restoreApiKey: boolean }): Promise<TableCounts> {
+export async function restoreBackup(backup: BackupFile, options: { restoreApiKey: boolean; passphrase?: string }): Promise<TableCounts> {
+  // Decrypt first so a wrong passphrase fails before any local data is replaced.
+  let keys: Record<string, string> = {};
+  if (options.restoreApiKey) {
+    if (backup.secretsEnc) {
+      if (!options.passphrase) throw new BackupError('Enter the backup passphrase to restore the API keys.');
+      keys = await decryptSecrets(backup.secretsEnc, options.passphrase);
+    } else if (backup.secrets) {
+      keys = { ...backup.secrets };
+    }
+  }
   await db.transaction('rw', db.tables, async () => {
     for (const table of db.tables) {
       await table.clear();
@@ -137,11 +159,9 @@ export async function restoreBackup(backup: BackupFile, options: { restoreApiKey
       if (rows?.length) await table.bulkPut(rows);
     }
   });
-  if (options.restoreApiKey && backup.secrets) {
-    for (const p of PROVIDER_IDS) {
-      const key = backup.secrets[SECRET_FIELD[p]];
-      if (key) await setApiKey(key, p);
-    }
+  for (const p of PROVIDER_IDS) {
+    const key = keys[SECRET_FIELD[p]];
+    if (key) await setApiKey(key, p);
   }
   return countRows(backup);
 }

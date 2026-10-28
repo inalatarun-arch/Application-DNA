@@ -17,8 +17,11 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 20
-      # With a lockfile installs are exact; without one (first run) they fall back to a normal install.
-      - run: if [ -f package-lock.json ]; then npm ci; else npm install; fi
+      # Exact, reproducible installs from package-lock.json. If this step fails because the lockfile is
+      # missing, run Actions > "Update lockfile" once.
+      - run: npm ci
+      # Fails the build when a production dependency has a known high or critical vulnerability.
+      - run: npm audit --omit=dev --audit-level=high
       - run: npm test
       # Lint results are reported but do not fail the build yet.
       - run: npm run lint

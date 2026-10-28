@@ -15,6 +15,8 @@ npm run build      # type-check + production build into dist/
 - Choose the AI provider in Settings > AI configuration: Google Gemini, Anthropic Claude, or any OpenAI-compatible service (OpenAI, OpenRouter, Groq, Mistral, local servers; set the base URL). Each provider has its own encrypted key, live model list and model-per-feature settings. Calls go straight from the browser to the provider you pick.
 - Each key lives in an encrypted vault (AES-256-GCM, passphrase or device mode) in Settings > AI configuration. For Gemini only, you can instead deploy the server proxy in `proxy/` (see `proxy/README.md`) so no key reaches the browser.
 - All Gemini traffic goes through `src/services/geminiService.ts`.
+- The production build adds a Content-Security-Policy (`vite.config.ts`) that only lets the app's own bundled scripts run. If a new feature loads a script, font or frame from another site, it must be added there on purpose. Check the browser console for "Content Security Policy" messages after a deploy.
+- Backups exclude API keys by default; when included they are encrypted with a backup passphrase. The optional proxy in `proxy/` requires an access token.
 - Schema changes: add a new `this.version(n)` block in `src/db/db.ts` and bump `DB_SCHEMA_VERSION`.
 
 ## Documentation
@@ -30,4 +32,4 @@ npm run build      # type-check + production build into dist/
 - **Tests** (`npm test`) cover Gemini parsing, file payloads, flow logic, DOCX/Visio output and the FDD pipeline. `npm run lint` is advisory in CI.
 
 ## Lockfile
-No `package-lock.json` is committed. In GitHub open Actions > "Update lockfile" > Run workflow once; it commits the lockfile and CI/deploy then use `npm ci`.
+CI and deploy use `npm ci`, which needs `package-lock.json`. If it is missing or `package.json` changed, open Actions > "Update lockfile" > Run workflow once; it commits the lockfile and then starts a deploy. CI also runs `npm audit` on production dependencies, and Dependabot proposes weekly updates.

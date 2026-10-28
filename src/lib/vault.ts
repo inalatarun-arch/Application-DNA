@@ -18,9 +18,12 @@
 const DEVICE_DB = 'eih-vault';
 const DEVICE_STORE = 'keys';
 
-/** One independent vault per provider. 'gemini' keeps the original storage names so existing keys still work. */
-export type VaultSlot = 'gemini' | 'anthropic' | 'openai';
-export const VAULT_SLOTS: VaultSlot[] = ['gemini', 'anthropic', 'openai'];
+/**
+ * One independent vault per provider, plus 'proxy' for the access token of the optional server proxy.
+ * 'gemini' keeps the original storage names so existing keys still work.
+ */
+export type VaultSlot = 'gemini' | 'anthropic' | 'openai' | 'proxy';
+export const VAULT_SLOTS: VaultSlot[] = ['gemini', 'anthropic', 'openai', 'proxy'];
 const lsName = (slot: VaultSlot) => (slot === 'gemini' ? 'eih.vault.v1' : `eih.vault.v1.${slot}`);
 const deviceKeyId = (slot: VaultSlot) => (slot === 'gemini' ? 'device-key-v1' : `device-key-v1-${slot}`);
 const LS_VAULT = lsName('gemini');
