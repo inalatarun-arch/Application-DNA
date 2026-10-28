@@ -134,6 +134,10 @@ describe("shared helpers", () => {
   test("JSON instructions append to an existing system prompt", () => {
     expect(withJsonInstructions("Base", undefined).startsWith("Base")).toBe(true);
   });
+  test("OpenAI-style body carries a PDF as a file part", () => {
+    const body = buildOpenAiBody({ model: "m", messages: [{ role: "user", parts: [{ text: "read" }, { document: { mimeType: "application/pdf", data: "QUJD" } }] }], temperature: 0 }) as { messages: Array<{ content: Array<Record<string, unknown>> }> };
+    expect(body.messages[0].content[1]).toEqual({ type: "file", file: { filename: "document.pdf", file_data: "data:application/pdf;base64,QUJD" } });
+  });
   test("provider ids and base URLs are validated", () => {
     expect(isProviderId("anthropic")).toBe(true);
     expect(isProviderId("copilot")).toBe(false);

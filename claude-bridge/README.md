@@ -26,8 +26,8 @@ It uses your Claude Code allowance (Pro/Max/Team/Enterprise plan), so heavy runs
 
 ## Limits to know about
 
-- **PDFs:** the OpenAI-style path cannot carry PDFs. Upload Word, text or Excel instead, or switch to Gemini/Claude for those.
-  Images work (PNG, JPEG, GIF, WebP).
+- **PDFs:** supported through the bridge (read page by page, so very long PDFs are slower and use more of your allowance).
+  Images work too (PNG, JPEG, GIF, WebP).
 - **Speed:** each request starts a Claude Code process, so expect a few seconds of overhead per call. Up to 3 run at once.
 - **The bridge must be running** whenever you use AI in the app, and Claude Code must be signed in on the same computer.
 - Temperature is not adjustable through Claude Code and is ignored.

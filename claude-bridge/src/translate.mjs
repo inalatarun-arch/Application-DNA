@@ -29,6 +29,13 @@ function parseDataUrl(url) {
   return { ext, data: Buffer.from(m[2].replace(/\s/g, ''), 'base64') };
 }
 
+/** OpenAI `file` parts: only inline PDFs, as base64 data URLs. */
+function parsePdf(file) {
+  const m = /^data:application\/pdf;base64,([A-Za-z0-9+/=\s]+)$/.exec(file?.file_data ?? '');
+  if (!m) throw new BridgeError(400, 'Only PDF files sent inline as base64 data URLs are supported.');
+  return Buffer.from(m[1].replace(/\s/g, ''), 'base64');
+}
+
 const JSON_RULE = 'Reply with one valid JSON value and nothing else: no markdown fences, no commentary before or after.';
 
 /**
@@ -47,7 +54,11 @@ export function parseChatRequest(body) {
     const text = [];
     for (const p of partsOf(m?.content)) {
       if (p?.type === 'text' && typeof p.text === 'string') text.push(p.text);
-      else if (p?.type === 'image_url') {
+      else if (p?.type === 'file') {
+        const name = `document-${images.length + 1}.pdf`;
+        images.push({ name, data: parsePdf(p.file) });
+        text.push(`[Attached PDF: ${name}]`);
+      } else if (p?.type === 'image_url') {
         const { ext, data } = parseDataUrl(typeof p.image_url === 'string' ? p.image_url : p.image_url?.url);
         const name = `image-${images.length + 1}.${ext}`;
         images.push({ name, data });
@@ -75,7 +86,7 @@ export function parseChatRequest(body) {
     prompt = `Below is a conversation. Reply only with the next Assistant message, with no "Assistant:" label.\n\n${history}\n\nAssistant:`;
   }
   if (images.length) {
-    prompt += `\n\nThe attached images are files in the current folder (${images.map((i) => i.name).join(', ')}). Open each one with the Read tool before answering.`;
+    prompt += `\n\nThe attached files are in the current folder (${images.map((i) => i.name).join(', ')}). Open each one with the Read tool before answering. For a PDF, read every page (use the Read tool's pages option in chunks of up to 20 pages).`;
   }
 
   let systemText = system.join('\n\n');

@@ -72,7 +72,7 @@ export const PROVIDERS: Record<ProviderId, ProviderInfo> = {
     minKeyLength: 8,
     readsPdf: false,
     readsImages: true,
-    note: 'Works with OpenAI and any service that follows the OpenAI chat API (OpenRouter, Groq, Mistral, Azure OpenAI v1 endpoints, local servers). Change the base URL to point at one. PDFs are not sent; use text, Word or Excel files. A local address (such as the Claude Code bridge) needs no key.',
+    note: 'Works with OpenAI and any service that follows the OpenAI chat API (OpenRouter, Groq, Mistral, Azure OpenAI v1 endpoints, local servers). Change the base URL to point at one. PDFs are sent only to a local address (such as the Claude Code bridge, which needs no key); other services get text, Word or Excel files.',
   },
 };
 

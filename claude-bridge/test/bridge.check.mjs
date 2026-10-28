@@ -109,6 +109,14 @@ test('images must be inline data URLs of a supported type', () => {
   assert.match(j.prompt, /Read tool/);
 });
 
+test('inline PDFs are accepted as files; other file parts are refused', () => {
+  const file = (data) => ({ messages: [{ role: 'user', content: [{ type: 'text', text: 'read' }, { type: 'file', file: { filename: 'a.pdf', file_data: data } }] }] });
+  const j = parseChatRequest(file('data:application/pdf;base64,JVBERi0='));
+  assert.equal(j.images[0].name, 'document-1.pdf');
+  assert.match(j.prompt, /Attached PDF: document-1\.pdf/);
+  assert.throws(() => parseChatRequest(file('data:text/html;base64,AAAA')), /PDF/);
+});
+
 test('oversized system text moves into the prompt', () => {
   const j = parseChatRequest({ messages: [{ role: 'system', content: 'x'.repeat(120_000) }, { role: 'user', content: 'go' }] });
   assert.ok(j.system.length < 200);
