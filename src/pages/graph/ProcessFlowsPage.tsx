@@ -9,7 +9,8 @@ import { useTheme } from '@/context/ThemeContext';
 import { useGraphSource } from '@/hooks/useGraphSource';
 import { usePersistentState } from '@/hooks/usePersistentState';
 import { slug } from '@/lib/download';
-import { buildFunctionalityFlow, buildModuleFlow, flowToMermaid, type FlowModel, type FlowView } from '@/lib/flowModel';
+import { DIAGRAM_LABEL, buildFunctionalityFlow, flowToMermaid, type FlowModel, type FlowView } from '@/lib/flowModel';
+import { MODULE_DIAGRAMS, buildModuleDiagram, type ModuleDiagram } from '@/lib/processModel';
 import { layoutFlow } from '@/lib/flowLayout';
 import { exportFlowPng, exportFlowSvg } from '@/lib/flowExport';
 import type { GraphSource } from '@/lib/graphModel';
@@ -47,6 +48,7 @@ function FlowsView({ source }: { source: GraphSource }) {
   const { theme } = useTheme();
   const [params, setParams] = useSearchParams();
   const [view, setView] = usePersistentState<FlowView>('eih.flow.view', 'swimlane');
+  const [diagramKind, setDiagramKind] = usePersistentState<ModuleDiagram>('eih.flow.moduleDiagram', 'process');
   const [zoom, setZoom] = useState(1);
   const [copied, setCopied] = useState(false);
   const [exportError, setExportError] = useState('');
@@ -90,13 +92,17 @@ function FlowsView({ source }: { source: GraphSource }) {
 
   const built: FlowModel | null = useMemo(() => {
     if (selectedFn) return buildFunctionalityFlow(selectedFn, source);
-    if (selectedMod) return buildModuleFlow(selectedMod, source);
+    if (selectedMod) return buildModuleDiagram(diagramKind, selectedMod, source);
     return null;
-  }, [selectedFn, selectedMod, source]);
+  }, [selectedFn, selectedMod, source, diagramKind]);
   const model: FlowModel | null = override ?? built;
 
-  const layout = useMemo(() => (model && model.nodes.length > 0 ? layoutFlow(model, view) : null), [model, view]);
-  const mermaid = useMemo(() => (model ? flowToMermaid(model, view) : ''), [model, view]);
+  // The business process needs lanes, and the integration map has none; the relationship map can be drawn either way.
+  const typed = !!model?.diagram && model.diagram !== 'flow';
+  const views: FlowView[] = !typed ? ['swimlane', 'flowchart'] : model!.diagram === 'process' ? ['swimlane'] : model!.diagram === 'integration' ? ['flowchart'] : ['swimlane', 'flowchart'];
+  const shownView: FlowView = views.includes(view) ? view : views[0];
+  const layout = useMemo(() => (model && model.nodes.length > 0 ? layoutFlow(model, shownView) : null), [model, shownView]);
+  const mermaid = useMemo(() => (model ? flowToMermaid(model, shownView) : ''), [model, shownView]);
 
   const update = (changes: Record<string, string | null>) =>
     setParams(
@@ -111,7 +117,7 @@ function FlowsView({ source }: { source: GraphSource }) {
       { replace: true },
     );
 
-  const title = model ? `${model.title}${model.subtitle ? ` (${model.subtitle})` : ''}` : 'Process flow';
+  const title = model ? `${model.diagram && model.diagram !== 'flow' ? `${DIAGRAM_LABEL[model.diagram]}: ` : ''}${model.title}${model.subtitle ? ` (${model.subtitle})` : ''}` : 'Process flow';
   const generateAiFlow = async () => {
     if (!selectedFn || !apiKey) return;
     setAiBusy(true); setAiError('');
@@ -132,7 +138,7 @@ function FlowsView({ source }: { source: GraphSource }) {
       if (!(isGeminiError(err) && err.code === 'ABORTED')) setAiError(describeError(err));
     } finally { setAiBusy(false); }
   };
-  const base = model ? `${slug(model.title)}-${view}` : 'process-flow';
+  const base = model ? `${slug(model.title)}-${typed ? model!.diagram : shownView}` : 'process-flow';
 
   const fitWidth = () => {
     const w = frame.current?.clientWidth;
@@ -153,8 +159,8 @@ function FlowsView({ source }: { source: GraphSource }) {
     if (!layout || !model) return;
     setExportError('');
     try {
-      if (kind === 'svg') exportFlowSvg(layout, view, title, `${base}.svg`);
-      else await exportFlowPng(layout, view, title, `${base}.png`);
+      if (kind === 'svg') exportFlowSvg(layout, shownView, title, `${base}.svg`);
+      else await exportFlowPng(layout, shownView, title, `${base}.png`);
     } catch (err) {
       setExportError(err instanceof Error ? err.message : 'Export failed.');
     }
@@ -202,14 +208,27 @@ function FlowsView({ source }: { source: GraphSource }) {
             </select>
           )}
         </div>
-        <div role="group" aria-label="Diagram style" className="flex rounded border border-outline-variant">
-          {VIEWS.map((v) => (
-            <button key={v.id} type="button" aria-pressed={view === v.id} onClick={() => setView(v.id)} className={cn('px-3 py-2 text-body-md first:rounded-l last:rounded-r', view === v.id ? 'bg-primary text-on-primary' : 'text-on-surface-variant hover:bg-surface-container')}>
+        {scope === 'module' && (
+          <div>
+            <span className="field-label" id="flow-kind-label">Diagram</span>
+            <div role="group" aria-labelledby="flow-kind-label" className="flex rounded border border-outline-variant">
+              {MODULE_DIAGRAMS.map((d) => (
+                <button key={d.id} type="button" aria-pressed={diagramKind === d.id} title={d.purpose} onClick={() => setDiagramKind(d.id)} className={cn('px-3 py-2 text-body-md first:rounded-l last:rounded-r', diagramKind === d.id ? 'bg-primary text-on-primary' : 'text-on-surface-variant hover:bg-surface-container')}>
+                  {d.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+        {views.length > 1 && <div role="group" aria-label="Diagram style" className="flex rounded border border-outline-variant">
+          {VIEWS.filter((v) => views.includes(v.id)).map((v) => (
+            <button key={v.id} type="button" aria-pressed={shownView === v.id} onClick={() => setView(v.id)} className={cn('px-3 py-2 text-body-md first:rounded-l last:rounded-r', shownView === v.id ? 'bg-primary text-on-primary' : 'text-on-surface-variant hover:bg-surface-container')}>
               {v.label}
             </button>
           ))}
-        </div>
+        </div>}
       </div>
+      {scope === 'module' && <p className="text-label-md font-normal text-on-surface-variant">{MODULE_DIAGRAMS.find((d) => d.id === diagramKind)?.purpose}</p>}
 
       {!model || !layout ? (
         <EmptyState icon={Workflow} title="Nothing to draw for this selection" description={scope === 'module' ? 'This module has no screens yet. Add screens and functionalities to see how they connect.' : 'Pick a functionality to see its flow.'} />
@@ -217,7 +236,7 @@ function FlowsView({ source }: { source: GraphSource }) {
         <>
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div className="min-w-0">
-              <h2 className="truncate text-headline-md">{model.title}</h2>
+              <h2 className="truncate text-headline-md">{model.title}{typed && <span className="ml-2 rounded-full bg-primary px-2 py-0.5 align-middle text-label-md font-medium text-on-primary">{DIAGRAM_LABEL[model.diagram!]}</span>}</h2>
               {model.subtitle && <p className="truncate text-body-md text-on-surface-variant">{model.subtitle}</p>}
             </div>
             <div className="flex flex-wrap items-center gap-2">
@@ -244,7 +263,7 @@ function FlowsView({ source }: { source: GraphSource }) {
 
           {exportError && <p role="alert" className="rounded border border-error bg-error-container p-3 text-body-md text-error">{exportError}</p>}
 
-          <FlowActions
+          {!typed && <FlowActions
             model={model}
             edited={override !== null}
             onChange={setOverride}
@@ -254,17 +273,54 @@ function FlowsView({ source }: { source: GraphSource }) {
               await db.functionalities.update(selectedFn.id, { processFlow: modelToMermaid(model), updatedAt: new Date().toISOString() });
               setOverride(null);
             } : undefined}
-          />
+          />}
 
           <div ref={frame} className="overflow-auto rounded border border-outline-variant bg-surface-lowest" style={{ maxHeight: '70dvh' }}>
-            <FlowDiagram layout={layout} view={view} palette={paletteFor(theme)} title={title} idPrefix="eih-view" scale={zoom} onNodeClick={(n) => n.to && navigate(n.to)} />
+            <FlowDiagram layout={layout} view={shownView} palette={paletteFor(theme)} title={title} idPrefix="eih-view" scale={zoom} onNodeClick={(n) => n.to && navigate(n.to)} />
           </div>
 
           {aiError && <p role="alert" className="rounded border border-error bg-error-container p-3 text-body-md text-error">{aiError}</p>}
           {aiFlow && <div className="space-y-2"><h3 className="text-body-md font-semibold">AI-generated Mermaid flow</h3><MermaidDiagram source={aiFlow}/><p className="text-label-md font-normal text-on-surface-variant">This flow is generated from the current Application DNA evidence. Regenerate it after adding or changing application functionality, screens or technical mappings.</p></div>}
-          <p className="text-label-md font-normal text-on-surface-variant">
-            Rounded ends mark where the flow starts and finishes, rectangles are steps, diamonds are decisions and slanted boxes are data. Click a step to open its page. PNG and SVG exports always use the light theme.
-          </p>
+          {typed ? (
+            <p className="text-label-md font-normal text-on-surface-variant">The legend inside the diagram explains every line and shape. Click a screen or function to open its page. Hover a line or node for the documentation it comes from. PNG and SVG exports always use the light theme.</p>
+          ) : (
+            <p className="text-label-md font-normal text-on-surface-variant">
+              Rounded ends mark where the flow starts and finishes, rectangles are steps, diamonds are decisions and slanted boxes are data. Click a step to open its page. PNG and SVG exports always use the light theme.
+            </p>
+          )}
+
+          {model.warnings && model.warnings.length > 0 && (
+            <details className="rounded border border-warn bg-warn-container" open>
+              <summary className="cursor-pointer px-4 py-2 text-body-md font-semibold">Gaps and uncertainties in the documentation ({model.warnings.length})</summary>
+              <ul className="list-disc space-y-1 border-t border-outline-variant px-8 py-3 text-body-md">{model.warnings.map((w) => <li key={w}>{w}</li>)}</ul>
+              <p className="border-t border-outline-variant px-4 py-2 text-label-md font-normal text-on-surface-variant">The diagram shows these as dashed amber lines, a ? badge or a note instead of guessing. Fix the documentation (or the screen, function and integration records) and the diagram updates.</p>
+            </details>
+          )}
+
+          {model.handoffs && model.handoffs.length > 0 && (
+            <details className="rounded border border-outline-variant">
+              <summary className="cursor-pointer px-4 py-2 text-body-md font-medium">Handoffs and integrations ({model.handoffs.length})</summary>
+              <div className="overflow-x-auto border-t border-outline-variant">
+                <table className="w-full min-w-[760px] text-left text-body-md">
+                  <thead className="bg-surface-low text-label-md text-on-surface-variant"><tr>{['From', 'To', 'Status', 'Integration', 'Type', 'Frequency / trigger', 'Authentication', 'Owner'].map((h) => <th key={h} scope="col" className="px-3 py-2 font-medium">{h}</th>)}</tr></thead>
+                  <tbody className="divide-y divide-outline-variant">
+                    {model.handoffs.flatMap((h, i) => (h.integrations.length ? h.integrations : [null]).map((it, j) => (
+                      <tr key={`${i}-${j}`} className="align-top">
+                        <td className="px-3 py-2">{h.from}</td>
+                        <td className="px-3 py-2">{h.to}</td>
+                        <td className="px-3 py-2">{h.status === 'documented' ? 'Documented' : h.status === 'ambiguous' ? 'Several documented' : h.status === 'missing' ? 'No integration documented' : h.status === 'reverse-only' ? 'Opposite direction only' : 'Within the application'}{h.note && j === 0 ? <span className="block text-label-md font-normal text-on-surface-variant">{h.note}</span> : null}</td>
+                        <td className="px-3 py-2 font-mono text-label-md">{it?.id ?? '-'}</td>
+                        <td className="px-3 py-2">{it?.type || '-'}</td>
+                        <td className="px-3 py-2">{it?.frequency || '-'}</td>
+                        <td className="px-3 py-2">{it?.authentication || '-'}</td>
+                        <td className="px-3 py-2">{it?.owner || '-'}</td>
+                      </tr>
+                    )))}
+                  </tbody>
+                </table>
+              </div>
+            </details>
+          )}
 
           <details className="rounded border border-outline-variant">
             <summary className="cursor-pointer px-4 py-2 text-body-md font-medium">Mermaid source</summary>

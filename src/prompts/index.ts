@@ -43,7 +43,7 @@ HOW TO WORK
 4. Extract as much supported detail as the source holds: purpose, business process, owners, navigation path, validation rules, workflow steps, approval logic, exception handling, roles, triggers, inputs, outputs, upstream and downstream systems, related items.
 5. Screens: list each visible control in uiElements as {name, type (${UI_ELEMENT_TYPES}), description, action (what clicking or changing it does), required}. Put a plain-language meaning for important fields in fieldDescriptions. Describe field types and rules, never copy personal data values from screenshots.
 6. Functionalities: exceptions is {validation[], error[], business[], system[]}. processFlow is Mermaid when the source describes a process, else "". ${MERMAID_RULES}
-7. technicalComponents: kind is exactly one of ${COMPONENT_KINDS}. For kind table or view fill columns[] {name, dataType, nullable, key ("PK"|"FK"|""), references, description}. Link them with functionalityNames, screenNames, dependsOnNames. metadata holds short string facts (schema, endpoint, version).
+7. technicalComponents: kind is exactly one of ${COMPONENT_KINDS}. For kind table or view fill columns[] {name, dataType, nullable, key ("PK"|"FK"|""), references, description}. Link them with functionalityNames, screenNames, dependsOnNames. metadata is a list of {key, value} text pairs holding short facts (schema, endpoint, version).
 8. sourceFiles on each screen: the FILE names that support it (match <<<FILE name>>> markers exactly).
 9. application: only fill fields the source states (name, vendor, domain, description, owners, technicalStack[], tags[], criticalTier "tier-1".."tier-4").
 10. Several documents may describe the same thing. Merge them into one item instead of duplicating it. Do not drop an item because it is small.
@@ -80,6 +80,7 @@ OUTPUT: {applications: [{applicationName, modules[], screens[], functionalities[
 
 NAMES AND IDS
 - When the source gives an identifier (MOD-01.01, SCR-01.01.01, FN-01.01.01-01, CMP-01-01, INT-01-01, OBJ-02-01, API-02-01, JOB-02-01, INF-02-01 ...), start the item's name with it: "SCR-01.01.01 Supplier Request". Always refer to an item by that same full name everywhere (moduleName, screenName, relatedScreenNames, functionalityNames, screenNames, dependsOnNames).
+- A function's name is its identifier followed by its short title. When the source gives the title as "Description: Update profile." the name is "FN-02.01.02-01 Update profile". Never leave a function named by its identifier alone.
 - operation is "create" and matchName "" for everything.
 
 WHAT TO EXTRACT (one item per row or heading in the source; never merge two rows, never skip a row)
@@ -87,11 +88,11 @@ WHAT TO EXTRACT (one item per row or heading in the source; never merge two rows
 2. screens: one per screen. moduleName is the module's full name. Map the screen's own details table: purpose, businessProcess, businessOwner, functionalOwner, navigationPath, approvalLogic, exceptionHandling[] (split into items), upstreamSystems[], downstreamSystems[], workflowSteps[] (one per numbered step), relatedScreenNames[] (full names). Field definition tables: every field becomes a fieldDescriptions entry {field, description: "<data type>; <mandatory?>; <rule>; e.g. <sample>"}, a uiElements entry {name, type (field|input|button|link|table|other), description, action, required}, and each distinct validation rule goes into validationRules[].
 3. functionalities: one per function row. screenName is the screen's full name. Fill description, businessPurpose, processFlow (the numbered steps as text), userRoles[], triggers[], inputs[], outputs[], exceptions {validation[], error[], business[], system[]}, upstreamSystems[], downstreamSystems[], relatedFunctionalityNames[] from the row.
 4. technicalComponents (kind exactly one of ${COMPONENT_KINDS}):
-   - Integrations (interfaces between systems): kind "integration", metadata {integrationType, source, target, direction, frequency, payload, authentication, errorHandling, owner}.
-   - Application components (CMP ids, services, workspaces, publishers): kind "service" (or job, queue, middleware, server, cloud, class when the source says so); description = the responsibility; metadata {owner}.
+   - Integrations (interfaces between systems): kind "integration". Its metadata pairs use exactly these keys: integrationType, source, target, direction, frequency, payload, authentication, errorHandling, owner. Copy source and target as the source writes them (for example "APP-03 Supplier Self-Service"). A summary or diagram that only restates an integration (for example "APP-01 -> APP-02 (supplier request publication)") with no integration ID of its own is not a new item; omit it unless nothing else in this part describes that connection.
+   - Application components (CMP ids, services, workspaces, publishers): kind "service" (or job, queue, middleware, server, cloud, class when the source says so); description = the responsibility; metadata pair owner.
    - Database objects: kind table, view, procedure or trigger as stated. columns[] {name, dataType, nullable, key ("PK"|"FK"|""), references ("TABLE.COLUMN"), description} from the columns list; relationships and access controls go in metadata {relationships, accessControls}.
-   - API endpoints: kind "rest" (or "soap"); name "API-02-01 POST /path"; metadata {httpMethod, path, requestSchema, responseSchema, authMethod, status}.
-   - Scheduled jobs: kind "job"; infrastructure resources: kind "server" or "cloud"; put schedule, status and owner in metadata.
+   - API endpoints: kind "rest" (or "soap"); name "API-02-01 POST /path"; metadata pairs httpMethod, path, requestSchema, responseSchema, authMethod, status.
+   - Scheduled jobs: kind "job"; infrastructure resources: kind "server" or "cloud"; put schedule, status and owner in metadata pairs.
    Link components with screenNames, functionalityNames and dependsOnNames when the source states the link.
 5. Never invent. Copy owners, versions and statuses as written. Never copy personal data; sample values may be summarised.
 6. Only items described in THIS part. Items that other parts will cover are not your concern, and a restated item must keep the same ID-based name.`;

@@ -29,6 +29,7 @@ npm run build      # type-check + production build into dist/
 - **Prompts** are centralised in `src/prompts/`, with JSON repair, retries and cut-off detection.
 - **Application Extractor** has a review screen: accept, reject or ask Gemini to change items before they are saved.
 - **Process flows** export to BPMN 2.0, draw.io and Visio (.vsdx), and can be changed by typing an instruction (delta edits, so few tokens).
+- **Module diagrams** come in three separately labelled views: a business-process swimlane (lanes are roles, applications and external systems; order comes only from the documented Business Process, never from IDs), a screen/function relationship map, and a cross-application integration map. Edges are typed (sequence, handoff, depends on, related to, data flow, conditional branch), uncertain or conflicting documentation is drawn dashed amber and listed under "Gaps and uncertainties".
 - **Projects**: impact analysis and the future-state flow work from a ranked, size-limited digest of the application (lean / standard / deep).
 - **Studio**: FDD (5-section template), FRD, TDD and stories; download as DOCX or Markdown, or ask Gemini to revise a section.
 - **Tests** (`npm test`) cover Gemini parsing, file payloads, flow logic, DOCX/Visio output and the FDD pipeline. `npm run lint` is advisory in CI.

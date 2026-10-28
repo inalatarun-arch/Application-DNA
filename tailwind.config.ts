@@ -22,6 +22,8 @@ export default {
         'on-primary': token('on-primary'),
         error: token('error'),
         'error-container': token('error-container'),
+        warn: token('warn'),
+        'warn-container': token('warn-container'),
       },
       fontFamily: {
         sans: ['"Inter Variable"', 'Inter', 'ui-sans-serif', 'system-ui', 'sans-serif'],

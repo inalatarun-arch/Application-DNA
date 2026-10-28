@@ -1,8 +1,41 @@
-import type { AppModule, Functionality, TechnicalComponent, TechnicalComponentKind } from '@/db/types';
+import type { Functionality, TechnicalComponent, TechnicalComponentKind } from '@/db/types';
 import { KIND_META, describeComponent, layerOf, type Layer } from '@/config/technical';
 import type { GraphSource } from './graphModel';
 
 export type FlowKind = 'start' | 'end' | 'step' | 'decision' | 'data';
+
+/**
+ * Finer node meaning for the typed module diagrams. Older flows leave it unset and are drawn from `kind` alone, so
+ * saved and AI-edited flows keep working.
+ */
+export type NodeRole = 'function' | 'screen' | 'application' | 'external' | 'boundary' | 'unordered';
+
+/**
+ * What a connection means. Only `sequence` and `branch` say "this happens after that"; `handoff` and `dataflow` say
+ * work or data crosses a boundary; `depends` and `related` and `contains` are associations with no order at all.
+ */
+export type EdgeType = 'sequence' | 'branch' | 'handoff' | 'dataflow' | 'depends' | 'related' | 'contains';
+
+/** Which of the three module views a model is. `flow` is an older, untyped flow. */
+export type DiagramType = 'process' | 'relationships' | 'integration' | 'flow';
+
+export const DIAGRAM_LABEL: Record<DiagramType, string> = {
+  process: 'Business-process swimlane',
+  relationships: 'Screen and function relationship map',
+  integration: 'Cross-application integration map',
+  flow: 'Process flow',
+};
+
+/** One-line meaning of every connection type, shown in the legend. */
+export const EDGE_MEANING: Record<EdgeType, { label: string; meaning: string }> = {
+  sequence: { label: 'Sequence', meaning: 'Next step in the documented order' },
+  branch: { label: 'Conditional branch', meaning: 'One of several alternative outcomes' },
+  handoff: { label: 'Handoff', meaning: 'Work or responsibility passes to another system or module' },
+  dataflow: { label: 'Data flow', meaning: 'Data sent from a source to a destination' },
+  depends: { label: 'Depends on', meaning: 'Relies on it; no execution order implied' },
+  related: { label: 'Related to', meaning: 'Association only; no order or direction' },
+  contains: { label: 'Contains', meaning: 'Screen and the functions on it' },
+};
 
 export interface FlowNode {
   id: string;
@@ -13,6 +46,11 @@ export interface FlowNode {
   kind: FlowKind;
   /** Page to open when the step is clicked. */
   to?: string;
+  role?: NodeRole;
+  /** Second, smaller line under the label (for example the screen a function sits on). */
+  sub?: string;
+  /** Plain-language notes about what the documentation does not settle for this node. Shown as a badge and a tooltip. */
+  flags?: string[];
 }
 
 export interface FlowEdge {
@@ -20,6 +58,21 @@ export interface FlowEdge {
   to: string;
   label?: string;
   dashed?: boolean;
+  /** Meaning of the connection. Unset on older flows, which are drawn from `dashed` as before. */
+  type?: EdgeType;
+  /** The documentation names this connection but does not settle it (one-sided, unconfirmed order, no integration). */
+  uncertain?: boolean;
+  /** Where in the documentation the connection comes from, for the tooltip. */
+  evidence?: string;
+}
+
+/** One cross-boundary transfer, listed beside the diagram with what the integration records say about it. */
+export interface HandoffInfo {
+  from: string;
+  to: string;
+  status: 'documented' | 'ambiguous' | 'missing' | 'reverse-only' | 'internal';
+  integrations: Array<{ id: string; type: string; frequency: string; payload: string; authentication: string; errorHandling: string; owner: string }>;
+  note: string;
 }
 
 export interface FlowModel {
@@ -28,6 +81,10 @@ export interface FlowModel {
   lanes: string[];
   nodes: FlowNode[];
   edges: FlowEdge[];
+  diagram?: DiagramType;
+  /** Gaps and contradictions in the documentation that the diagram shows as uncertain instead of guessing. */
+  warnings?: string[];
+  handoffs?: HandoffInfo[];
 }
 
 export type FlowView = 'flowchart' | 'swimlane';
@@ -204,107 +261,47 @@ export function buildFunctionalityFlow(fn: Functionality, src: GraphSource): Flo
   };
 }
 
-/** Screens of a module with their functionalities, how they hand off to each other, and the systems around them. */
-export function buildModuleFlow(mod: AppModule, src: GraphSource): FlowModel {
-  const b = new Builder();
-  const app = src.applications.find((a) => a.id === mod.applicationId);
-  const screens = src.screens.filter((s) => s.moduleId === mod.id).sort((a, c) => a.name.localeCompare(c.name));
-  const screenNode = new Map<string, string>();
-  const fnNode = new Map<string, string>();
-
-  for (const s of screens) {
-    const sn = b.add({ label: s.name, detail: s.purpose || undefined, lane: s.name, kind: 'step', to: `/applications/${s.applicationId}/screens/${s.id}` });
-    screenNode.set(s.id, sn);
-    const fns = src.functionalities.filter((f) => f.screenId === s.id).sort((a, c) => a.createdAt.localeCompare(c.createdAt));
-    for (const f of fns) {
-      const fnId = b.add({ label: f.name, detail: f.description || undefined, lane: s.name, kind: 'step', to: `/applications/${f.applicationId}/screens/${s.id}?tab=functionalities&open=${f.id}` });
-      fnNode.set(f.id, fnId);
-      b.link(sn, fnId);
-    }
-  }
-
-  // Hand-offs between screens, from documented upstream/downstream names and related-screen links
-  const byName = new Map(screens.map((s) => [s.name.toLowerCase(), s]));
-  const handoffs = new Set<string>();
-  const handoff = (from: string, to: string) => {
-    const key = `${from}>${to}`;
-    if (from === to || handoffs.has(key)) return;
-    handoffs.add(key);
-    b.link(screenNode.get(from)!, screenNode.get(to)!, 'hands off');
-  };
-  for (const s of screens) {
-    for (const d of clean(s.downstreamSystems)) {
-      const target = byName.get(d.toLowerCase());
-      if (target) handoff(s.id, target.id);
-    }
-    for (const u of clean(s.upstreamSystems)) {
-      const origin = byName.get(u.toLowerCase());
-      if (origin) handoff(origin.id, s.id);
-    }
-    for (const rid of s.relatedScreenIds ?? []) if (screenNode.has(rid) && s.id < rid) handoff(s.id, rid);
-  }
-
-  // Related functionalities (dashed)
-  for (const [fid, nodeId] of fnNode) {
-    const f = src.functionalities.find((x) => x.id === fid);
-    for (const rid of f?.relatedFunctionalityIds ?? []) {
-      const other = fnNode.get(rid);
-      if (other && fid < rid) b.link(nodeId, other, 'related', true);
-    }
-  }
-
-  // External systems that are not screens of this module
-  const externals = new Map<string, string>();
-  const external = (name: string, kind: FlowKind): string | null => {
-    const key = `${kind}:${name.toLowerCase()}`;
-    const existing = externals.get(key);
-    if (existing) return existing;
-    if (externals.size >= 8) return null;
-    const id = b.add({ label: name, lane: EXTERNAL, kind, detail: kind === 'start' ? 'Upstream system' : 'Downstream system' });
-    externals.set(key, id);
-    return id;
-  };
-  for (const s of screens) {
-    for (const u of clean(s.upstreamSystems)) {
-      if (byName.has(u.toLowerCase())) continue;
-      const id = external(u, 'start');
-      if (id) b.link(id, screenNode.get(s.id)!);
-    }
-    for (const d of clean(s.downstreamSystems)) {
-      if (byName.has(d.toLowerCase())) continue;
-      const id = external(d, 'end');
-      if (id) b.link(screenNode.get(s.id)!, id);
-    }
-  }
-
-  return {
-    title: mod.name,
-    subtitle: app?.name ?? '',
-    lanes: b.lanes([...screens.map((s) => s.name), EXTERNAL]),
-    nodes: b.nodes,
-    edges: b.edges,
-  };
-}
-
 const esc = (s: string) => s.replace(/"/g, "'").replace(/[\r\n]+/g, ' ');
+
+/** Arrow token for Mermaid: line style carries the meaning (thick = handoff, dotted without a head = association). */
+function mermaidArrow(e: FlowEdge): string {
+  switch (e.type) {
+    case 'handoff': return '==>';
+    case 'dataflow': case 'depends': return '-.->';
+    case 'related': return '-.-';
+    case 'contains': return '---';
+    default: return e.dashed ? '-.->' : '-->';
+  }
+}
 
 /** Mermaid source for the same diagram, for Draw.io, Visio import or documentation. */
 export function flowToMermaid(model: FlowModel, view: FlowView): string {
   const shape = (n: FlowNode) => {
-    const t = esc(n.label);
+    const t = esc(n.sub ? `${n.label} (${n.sub})` : n.label);
+    if (n.kind === 'decision') return `${n.id}{"${t}"}`;
+    switch (n.role) {
+      case 'screen': return `${n.id}[["${t}"]]`;
+      case 'application': return `${n.id}{{"${t}"}}`;
+      case 'external': return `${n.id}(["${t}"])`;
+      case 'boundary': return `${n.id}[/"${t}"/]`;
+      default: break;
+    }
     switch (n.kind) {
       case 'start':
       case 'end':
         return `${n.id}(["${t}"])`;
-      case 'decision':
-        return `${n.id}{"${t}"}`;
       case 'data':
         return `${n.id}[/"${t}"/]`;
       default:
         return `${n.id}["${t}"]`;
     }
   };
-  const lines: string[] = [view === 'swimlane' ? 'flowchart LR' : 'flowchart TD'];
+  const lines: string[] = [];
+  if (model.diagram && model.diagram !== 'flow') {
+    lines.push(`%% ${DIAGRAM_LABEL[model.diagram]}: ${esc(model.title)}`);
+    for (const w of model.warnings ?? []) lines.push(`%% Uncertain: ${esc(w)}`);
+  }
+  lines.push(view === 'swimlane' ? 'flowchart LR' : 'flowchart TD');
   if (view === 'swimlane') {
     model.lanes.forEach((lane, i) => {
       lines.push(`  subgraph lane${i}["${esc(lane)}"]`);
@@ -315,8 +312,10 @@ export function flowToMermaid(model: FlowModel, view: FlowView): string {
     for (const n of model.nodes) lines.push(`  ${shape(n)}`);
   }
   for (const e of model.edges) {
-    const arrow = e.dashed ? '-.->' : '-->';
-    lines.push(e.label ? `  ${e.from} ${arrow}|${esc(e.label)}| ${e.to}` : `  ${e.from} ${arrow} ${e.to}`);
+    const arrow = mermaidArrow(e);
+    const label = e.label ? `${e.uncertain ? '? ' : ''}${esc(e.label)}` : e.uncertain ? '?' : '';
+    // Association lines (related, contains) take no label in Mermaid.
+    lines.push(label && arrow !== '-.-' && arrow !== '---' ? `  ${e.from} ${arrow}|${label}| ${e.to}` : `  ${e.from} ${arrow} ${e.to}`);
   }
   return lines.join('\n');
 }

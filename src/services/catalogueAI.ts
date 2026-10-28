@@ -28,6 +28,8 @@ export interface CatalogueRun {
   failed: string[];
   /** Parts whose answer was cut off and could not be recovered even after splitting. */
   truncated: number;
+  /** Links the import repaired from the document's numbering (a screen without a module). */
+  repairs: string[];
   /** Items the model attached to a name outside the roster (dropped). */
   unmatched: number;
   model: string;
@@ -124,5 +126,6 @@ export async function extractCatalogue(
   if (halted) failed.push(`Stopped early: ${halted} The remaining parts were not read.`);
   if (units.length && failed.length === units.length) throw new Error(`The AI could not read any part of the document. ${failed[0]}`);
 
-  return { plans: mergeAnswers(answers, roster), parts: units.length, skipped, failed, truncated, unmatched: answers.reduce((n, a) => n + a.unmatched, 0), model };
+  const repairs: string[] = [];
+  return { plans: mergeAnswers(answers, roster, repairs), repairs, parts: units.length, skipped, failed, truncated, unmatched: answers.reduce((n, a) => n + a.unmatched, 0), model };
 }

@@ -102,7 +102,7 @@ export default function BulkImportModal({ open, onClose, onImported }: Props) {
     try {
       const r = await extractCatalogue(files, notes, names, { signal: controller.signal, onProgress: (done, total, message) => setDeepProgress({ done, total, message }) });
       setEntries(names.map((name) => { const plan = r.plans.get(name) ?? null; return { name, plan, counts: plan ? countPlan(plan) : countPlan({ application: {}, modules: [], screens: [], functionalities: [], technicalComponents: [] }), status: 'pending' as const }; }));
-      setNotesInfo({ parts: r.parts, skipped: r.skipped, failed: r.failed, truncated: r.truncated, unmatched: r.unmatched, model: r.model });
+      setNotesInfo({ parts: r.parts, skipped: r.skipped, failed: r.failed, truncated: r.truncated, unmatched: r.unmatched, repairs: r.repairs, model: r.model });
     } catch (err) {
       setDeepError(isGeminiError(err) && err.code === 'ABORTED' ? 'Detail extraction was stopped. The applications are saved; you can try again.' : `${describeError(err)} The applications are saved; you can try again.`);
     } finally { setStage('details'); abort.current = null; }

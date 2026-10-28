@@ -66,7 +66,8 @@ export function normalizeCatalogue(raw: unknown, roster: string[]): PartAnswer {
 /** "SCR-01.01.01 Supplier Request" -> "SCR-01.01.01". Names without a leading identifier give ''. */
 export function leadingId(name: string): string {
   const m = /^([A-Za-z]{2,6}-[A-Za-z0-9.]+(?:-[A-Za-z0-9.]+)*)(?=\s|$|[:—–-]\s)/.exec(name.trim());
-  return m ? m[1].toUpperCase() : '';
+  // "APP-03" is an application code that many different items start with, not the identifier of one item.
+  return m && !/^APP-\d+$/i.test(m[1]) ? m[1].toUpperCase() : '';
 }
 
 /**
@@ -110,12 +111,36 @@ export function canonicaliseIds(plans: ApplicationExtraction[]): ApplicationExtr
   }));
 }
 
+/** The numbers inside an identifier: "SCR-02.01.03" -> [2, 1, 3]. */
+const idNumbers = (name: string): number[] => (leadingId(name).match(/\d+/g) ?? []).map(Number);
+
+/**
+ * A screen the AI left without a module is placed under the module whose identifier numbers begin the screen's own
+ * (MOD-02.01 holds SCR-02.01.03), which is how the specification's own numbering expresses membership. Only a single,
+ * unambiguous match is used, and every repair is reported so it can be checked.
+ */
+export function repairModules(plan: ApplicationExtraction, repairs: string[] = []): ApplicationExtraction {
+  const mods = plan.modules.map((m) => ({ name: m.name, nums: idNumbers(m.name) })).filter((m) => m.nums.length);
+  return {
+    ...plan,
+    screens: plan.screens.map((s) => {
+      if (s.moduleName) return s;
+      const nums = idNumbers(s.name);
+      const hits = mods.filter((m) => m.nums.length < nums.length && m.nums.every((n, i) => n === nums[i]));
+      const best = hits.filter((h) => h.nums.length === Math.max(...hits.map((x) => x.nums.length)));
+      if (best.length !== 1) return s;
+      repairs.push(`${s.name} had no module; placed under ${best[0].name} (its identifier numbers fall under that module's).`);
+      return { ...s, moduleName: best[0].name };
+    }),
+  };
+}
+
 /** Merges every part's answer into one plan per application. */
-export function mergeAnswers(answers: PartAnswer[], roster: string[]): Map<string, ApplicationExtraction> {
+export function mergeAnswers(answers: PartAnswer[], roster: string[], repairs: string[] = []): Map<string, ApplicationExtraction> {
   const out = new Map<string, ApplicationExtraction>();
   for (const app of roster) {
     const plans = answers.map((a) => a.perApp.get(app)).filter((p): p is ApplicationExtraction => !!p);
-    if (plans.length) out.set(app, mergeExtractions(canonicaliseIds(plans)));
+    if (plans.length) out.set(app, repairModules(mergeExtractions(canonicaliseIds(plans)), repairs));
   }
   return out;
 }
