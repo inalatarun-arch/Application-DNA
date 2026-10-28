@@ -2,8 +2,8 @@ import { useState } from 'react';
 import { AlertTriangle, Eye, EyeOff, KeyRound, Loader2, Lock, ShieldCheck, Trash2, Unlock, Zap } from 'lucide-react';
 import { useVault } from './useVault';
 import { deleteVault, findLegacyKeys, lock, readLegacyKey, saveKey, unlock, wipeLegacyKeys, type LegacyKeyHit, type VaultMode } from '@/lib/vault';
-import { PROVIDERS, cleanBaseUrl, hostOf, type ProviderId } from '@/config/providers';
-import { getBaseUrl, getProxy, hasProxyToken, setBaseUrl, setProxy } from '@/services/apiKeyStore';
+import { CLAUDE_BRIDGE_URL, PROVIDERS, cleanBaseUrl, hostOf, type ProviderId } from '@/config/providers';
+import { getBaseUrl, getProxy, hasProxyToken, setBaseUrl, setProxy, usesLocalServer } from '@/services/apiKeyStore';
 import { testConnection, type ConnectionTestResult } from '@/services/geminiService';
 import { useAiSettings } from '@/db/settings';
 import { cn } from '@/lib/cn';
@@ -34,6 +34,7 @@ export default function KeyVaultCard({ provider = 'gemini' }: { provider?: Provi
 
   const showForm = !vault.hasVault || replacing;
   const proxyOn = isGemini && !!getProxy().url;
+  const localOn = usesLocalServer(provider);
 
   const run = async (fn: () => Promise<void>) => {
     setBusy(true);
@@ -118,13 +119,13 @@ export default function KeyVaultCard({ provider = 'gemini' }: { provider?: Provi
   return (
     <div className="mt-6 max-w-xl space-y-5">
       <div className="flex flex-wrap items-center gap-3 rounded border border-outline-variant bg-surface-low p-3">
-        {vault.unlocked || proxyOn ? <ShieldCheck size={18} aria-hidden /> : vault.hasVault ? <Lock size={18} aria-hidden /> : <KeyRound size={18} aria-hidden />}
+        {vault.unlocked || proxyOn || localOn ? <ShieldCheck size={18} aria-hidden /> : vault.hasVault ? <Lock size={18} aria-hidden /> : <KeyRound size={18} aria-hidden />}
         <div className="min-w-0 flex-1">
           <p className="text-body-md font-semibold">
-            {proxyOn ? 'Using a server proxy' : !vault.hasVault ? 'No API key saved' : vault.unlocked ? 'API key unlocked for this session' : 'API key saved and locked'}
+            {proxyOn ? 'Using a server proxy' : localOn && !vault.hasVault ? 'Using a server on this computer' : !vault.hasVault ? 'No API key saved' : vault.unlocked ? 'API key unlocked for this session' : 'API key saved and locked'}
           </p>
           <p className="text-label-md font-normal text-on-surface-variant">
-            {proxyOn ? 'Requests go to your proxy, which holds the key.' : vault.hasVault ? `Stored encrypted (AES-256-GCM, ${vault.mode === 'passphrase' ? 'passphrase' : 'device'} protected). It is never shown again.` : `Create a key in ${info.keyUrlLabel} and paste it below. It is encrypted before it is stored.`}
+            {proxyOn ? 'Requests go to your proxy, which holds the key.' : localOn && !vault.hasVault ? `Requests go to ${hostOf(getBaseUrl(provider))}. No API key is needed for a local address.` : vault.hasVault ? `Stored encrypted (AES-256-GCM, ${vault.mode === 'passphrase' ? 'passphrase' : 'device'} protected). It is never shown again.` : `Create a key in ${info.keyUrlLabel} and paste it below. It is encrypted before it is stored.`}
           </p>
         </div>
         {vault.hasVault && vault.unlocked && <button type="button" className="btn btn-secondary px-3 py-1.5" onClick={() => lock(provider)}><Lock size={14} aria-hidden />Lock</button>}
@@ -158,7 +159,13 @@ export default function KeyVaultCard({ provider = 'gemini' }: { provider?: Provi
                 && !window.confirm(`Your ${info.short} API key will be sent to ${hostOf(next)}. Only continue if you trust that service.`)) return;
               setBaseUrl(provider, baseUrl); setBaseUrlDraft(getBaseUrl(provider)); setMsg({ ok: true, text: 'Address saved. Press Refresh next to the model list to load that service\'s models.' }); })}>Save address</button>
           </div>
-          <p className="field-hint">Leave as is for OpenAI. For OpenRouter, Groq, Mistral or a local server, paste its OpenAI-style address (it usually ends in /v1). If your server needs no key, enter any placeholder of 8 or more characters.</p>
+          <div className="flex flex-wrap items-center gap-2">
+            <button type="button" className="btn btn-secondary" disabled={busy} onClick={() => void run(async () => {
+              setBaseUrl(provider, CLAUDE_BRIDGE_URL); setBaseUrlDraft(getBaseUrl(provider));
+              setMsg({ ok: true, text: 'Pointed at the Claude Code bridge. No API key is needed. Start it with "npm run bridge" (or register it in Claude Code, see claude-bridge/README.md), then press Test API connection.' }); })}>Use Claude Code bridge</button>
+            <span className="field-hint">Answers every AI feature through your Claude Code login instead of an API key.</span>
+          </div>
+          <p className="field-hint">Leave as is for OpenAI. For OpenRouter, Groq, Mistral or a local server, paste its OpenAI-style address (it usually ends in /v1). A local address (localhost) needs no API key.</p>
         </div>
       )}
 
@@ -184,7 +191,7 @@ export default function KeyVaultCard({ provider = 'gemini' }: { provider?: Provi
       )}
 
       <div className="flex flex-wrap gap-2">
-        <button type="button" className="btn btn-secondary" onClick={() => void onTest()} disabled={testing || (!vault.unlocked && !proxyOn)}>
+        <button type="button" className="btn btn-secondary" onClick={() => void onTest()} disabled={testing || (!vault.unlocked && !proxyOn && !localOn)}>
           {testing ? <Loader2 size={16} className="animate-spin" aria-hidden /> : <Zap size={16} aria-hidden />}Test API connection
         </button>
       </div>

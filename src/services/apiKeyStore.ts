@@ -7,7 +7,7 @@
  *  2. An optional server proxy (see docs/gemini-proxy-worker.js). The Google key then lives on the server
  *     and the browser holds no key at all; only the proxy URL and an optional shared token are stored here.
  */
-import { PROVIDERS, cleanBaseUrl, isProviderId, type ProviderId } from '@/config/providers';
+import { PROVIDERS, cleanBaseUrl, isLocalUrl, isProviderId, type ProviderId } from '@/config/providers';
 import {
   deleteVault,
   findLegacyKeys,
@@ -123,10 +123,18 @@ export async function setProxy(url: string, token: string): Promise<void> {
   }
 }
 
-/** Truthy when AI calls can be authorised right now: an unlocked key for the active provider, or (Gemini only) a configured proxy. */
+/** True when the OpenAI-compatible provider points at a server on this computer, which needs no key. */
+export function usesLocalServer(p: ProviderId = getActiveProvider()): boolean {
+  return p === 'openai' && isLocalUrl(getBaseUrl(p));
+}
+
+/**
+ * Truthy when AI calls can be authorised right now: an unlocked key for the active provider, a configured Gemini
+ * proxy, or a local OpenAI-compatible server such as the Claude Code bridge (no key needed).
+ */
 export function getAiAccess(): string {
   const p = getActiveProvider();
-  return getApiKey(p) || (p === 'gemini' && getProxy().url ? 'proxy' : '');
+  return getApiKey(p) || (p === 'gemini' && getProxy().url ? 'proxy' : '') || (usesLocalServer(p) ? 'local' : '');
 }
 
 /** Saves a key into the vault, device bound. Used by backup restore; the settings panel offers passphrase mode. */

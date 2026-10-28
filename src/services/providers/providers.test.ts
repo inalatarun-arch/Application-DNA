@@ -3,7 +3,7 @@ import { adjust as adjustAnthropic, buildAnthropicBody, parseAnthropicModels, pa
 import { adjustOpenAiBody, buildOpenAiBody, parseOpenAiModels, parseOpenAiResponse } from "./openai";
 import { toNormMessages, withJsonInstructions } from "./shared";
 import { GeminiBlockedError, GeminiEmptyResponseError, GeminiError } from "../aiErrors";
-import { PROVIDERS, cleanBaseUrl, isProviderId } from "../../config/providers";
+import { CLAUDE_BRIDGE_URL, PROVIDERS, cleanBaseUrl, isLocalUrl, isProviderId } from "../../config/providers";
 import { applyPatch, viewForProvider } from "../../db/settingsView";
 
 const accepts = { pdf: true, image: true };
@@ -141,6 +141,14 @@ describe("shared helpers", () => {
     expect(cleanBaseUrl("http://example.com/v1")).toBe("");
     expect(cleanBaseUrl("http://localhost:11434/v1")).toBe("http://localhost:11434/v1");
     expect(PROVIDERS.openai.customBaseUrl).toBe(true);
+  });
+  test("local addresses (such as the Claude Code bridge) are recognised, remote ones are not", () => {
+    expect(isLocalUrl(CLAUDE_BRIDGE_URL)).toBe(true);
+    expect(isLocalUrl("http://localhost:11434/v1")).toBe(true);
+    expect(isLocalUrl("https://localhost/v1")).toBe(false);
+    expect(isLocalUrl("http://localhost.evil.com/v1")).toBe(false);
+    expect(isLocalUrl("https://api.openai.com/v1")).toBe(false);
+    expect(cleanBaseUrl(CLAUDE_BRIDGE_URL)).toBe(CLAUDE_BRIDGE_URL);
   });
   test("GeminiError carries a code the callers can branch on", () => {
     expect(new GeminiError("QUOTA_EXCEEDED", "x").code).toBe("QUOTA_EXCEEDED");
