@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'vitest';
 import fixture from './__fixtures__/supplierPack.json';
+import refreshed from './__fixtures__/supplierPackRefreshed.json';
 import type { AppModule, Application, Functionality, Screen, TechnicalComponent } from '@/db/types';
 import type { GraphSource } from './graphModel';
 import type { FlowEdge, FlowModel } from './flowModel';
@@ -473,5 +474,54 @@ describe('exports describe the same typed relationships', () => {
     ];
     const lines = flowToMermaid({ ...model, nodes: [], lanes: [], edges: types }, 'flowchart').split('\n').slice(-5);
     expect(lines).toEqual(['  a ==> b', '  a -.-> b', '  a -.- b', '  a --- b', '  a -->|? x| b']);
+  });
+});
+
+// ================================================================ the same document after the extraction fixes
+
+describe('regression: refreshed extraction of the test pack (structured integration records)', () => {
+  const fresh = refreshed as unknown as GraphSource;
+  const freshMod = (code: string) => fresh.modules.find((x) => x.name.startsWith(code))!;
+
+  test('every module screen is present and every integration carries its facts', () => {
+    const m2 = freshMod('MOD-02.01');
+    expect(fresh.screens.filter((s) => s.moduleId === m2.id)).toHaveLength(3);
+    const ints = fresh.components.filter((c) => c.kind === 'integration');
+    expect(ints).toHaveLength(8);
+    expect(ints.every((c) => c.metadata.source && c.metadata.target && c.metadata.frequency)).toBe(true);
+  });
+
+  test('Supplier Master process now includes Bank Account Assignment as a screen of the module, not a boundary', () => {
+    const model = buildProcessSwimlane(freshMod('MOD-02.01'), fresh);
+    const node = model.nodes.find((n) => n.label.startsWith('SCR-02.01.03'))!;
+    expect(node.role).toBe('screen');
+    expect(model.warnings!.some((w) => /not assigned to any module/.test(w))).toBe(false);
+  });
+
+  test('integrations are matched by source, target and direction, and ambiguity is only reported where the records really overlap', () => {
+    const model = buildProcessSwimlane(freshMod('MOD-03.01'), fresh);
+    const toApp1 = between(model, 'SCR-03.01.01', 'SCR-01.01.01')[0];
+    expect(toApp1.label).toBe('INT-03-02 · callback');
+    expect(toApp1.uncertain).toBeUndefined();
+    const toApp2 = between(model, 'SCR-03.01.03', 'SCR-02.01.03')[0];
+    expect(toApp2.label).toBe('INT-03-01 / INT-02-01');
+    expect(toApp2.uncertain).toBe(true);
+  });
+
+  test('the integration map has all eight records, none duplicated, and no gaps about missing facts', () => {
+    const map = buildIntegrationMap(freshMod('MOD-02.01'), fresh);
+    const ids = edgesOf(map, 'dataflow').map((e) => e.label!.split(' · ')[0]);
+    expect(new Set(ids).size).toBe(ids.length);
+    expect(ids).toEqual(expect.arrayContaining(['INT-01-01', 'INT-01-02', 'INT-02-02', 'INT-03-01']));
+    expect(map.warnings!.some((w) => /^No (frequency|authentication|owner)/.test(w) && /INT-0[1-3]/.test(w) && !/INT-02-01/.test(w))).toBe(false);
+  });
+
+  test('all six views of both modules render with no connector through a node', () => {
+    for (const code of ['MOD-02.01', 'MOD-03.01']) {
+      const m = freshMod(code);
+      expect(crossings(layoutFlow(buildProcessSwimlane(m, fresh), 'swimlane'))).toEqual([]);
+      expect(crossings(layoutFlow(buildRelationshipMap(m, fresh), 'swimlane'))).toEqual([]);
+      expect(crossings(layoutFlow(buildIntegrationMap(m, fresh), 'flowchart'))).toEqual([]);
+    }
   });
 });

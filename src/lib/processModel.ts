@@ -46,9 +46,10 @@ class Scene {
     const n = this.nodes.find((x) => x.id === id);
     if (n) fn(n);
   }
-  edge(from: string, to: string, type: EdgeType, extra: Partial<FlowEdge> = {}): void {
+  /** `distinct` keeps two real connections between the same two nodes (two integrations, say) from being merged into one line. */
+  edge(from: string, to: string, type: EdgeType, extra: Partial<FlowEdge> = {}, distinct = ''): void {
     if (from === to) return;
-    const k = `${from}>${to}>${type}`;
+    const k = `${from}>${to}>${type}>${distinct}`;
     if (this.seenEdges.has(k)) return;
     this.seenEdges.add(k);
     this.edges.push({ from, to, type, dashed: type === 'depends' || type === 'related' || extra.uncertain ? true : undefined, ...extra });
@@ -159,9 +160,10 @@ function linkBoundary(ctx: Ctx, from: Screen, t: Target): void {
   const ev = `${from.name}: ${t.dir === 'up' ? 'Upstream' : 'Downstream'} Systems lists "${t.text}"`;
   if (found.matches.length > 0) {
     const ids = found.matches.map((i) => i.id).join(' / ');
-    const mech = [...new Set(found.matches.map((i) => MECHANISM_LABEL[i.mechanism]))].join(' / ');
+    const mechs = [...new Set(found.matches.map((i) => MECHANISM_LABEL[i.mechanism]))];
     const ambiguous = found.matches.length > 1;
-    arrow(other, 'handoff', { label: `${ids} · ${mech}`, uncertain: ambiguous || undefined, evidence: `${ev}. ${found.matches.map(integrationSummary).join(' | ')}` });
+    // Differing mechanisms stay in the tooltip and the table; the label keeps to what is true of every match.
+    arrow(other, 'handoff', { label: mechs.length === 1 ? `${ids} · ${mechs[0]}` : ids, uncertain: ambiguous || undefined, evidence: `${ev}. ${found.matches.map(integrationSummary).join(' | ')}` });
     b.handoffs.push({ from: names.from, to: names.to, status: ambiguous ? 'ambiguous' : 'documented', integrations: found.matches.map(infoOf), note: ambiguous ? `Several integrations are documented from ${names.from} to ${names.to}; which one carries this handoff is not stated.` : '' });
     if (ambiguous) b.warn(`${names.from} → ${names.to}: ${found.matches.length} integrations are documented (${ids}); which one carries the handoff from ${from.name} is not stated.`);
   } else if (found.reverse.length > 0) {
@@ -391,7 +393,7 @@ export function buildRelationshipMap(mod: AppModule, src: GraphSource): FlowMode
     const sn = screenNode(s);
     for (const f of src.functionalities.filter((x) => x.screenId === s.id).sort(docOrder)) {
       fnIds.add(f.id);
-      const id = b.node(`fn:${f.id}`, { label: f.name, lane: s.name, kind: 'step', role: 'function', detail: f.description || undefined, to: `/applications/${f.applicationId}/screens/${s.id}?tab=functionalities&open=${f.id}` });
+      const id = b.node(`fn:${f.id}`, { label: displayName(f), lane: s.name, kind: 'step', role: 'function', detail: f.description || undefined, to: `/applications/${f.applicationId}/screens/${s.id}?tab=functionalities&open=${f.id}` });
       b.edge(sn, id, 'contains', { evidence: `${f.name} is a function of ${s.name}` });
     }
   }
@@ -441,7 +443,7 @@ export function buildIntegrationMap(mod: AppModule, src: GraphSource): FlowModel
     b.edge(from, to, 'dataflow', {
       label: `${i.id} · ${MECHANISM_LABEL[i.mechanism]}`, uncertain: missing || undefined,
       evidence: integrationSummary(i),
-    });
+    }, i.id);
     b.handoffs.push({ from: i.sourceApp ? appLabel(i.sourceApp, idx) : i.source || 'Unknown', to: i.targetApp ? appLabel(i.targetApp, idx) : i.target || 'Unknown', status: 'documented', integrations: [infoOf(i)], note: '' });
     if (missing) b.warn(`${i.id}: ${!i.sourceApp ? `source "${i.source || 'not stated'}"` : `target "${i.target || 'not stated'}"`} is not an application in the catalogue, so it is shown as an outside system.`);
   }
