@@ -9,6 +9,7 @@ import {
   Settings,
   type LucideIcon,
 } from 'lucide-react';
+import { FEATURES } from './features';
 
 export interface NavItem {
   to: string;
@@ -20,7 +21,7 @@ export interface NavItem {
   section?: string;
 }
 
-export const NAV_ITEMS: NavItem[] = [
+const ALL_NAV_ITEMS: NavItem[] = [
   { to: '/', label: 'Dashboard', description: 'Overview of the workspace', icon: LayoutDashboard, group: 'main', section: 'Workspace' },
   { to: '/applications', label: 'Applications', description: 'Applications, modules, screens and functionalities', icon: Blocks, group: 'main' },
   { to: '/knowledge-graph', label: 'Knowledge Graph', description: 'Relationship map across the repository', icon: Network, group: 'main' },
@@ -30,3 +31,6 @@ export const NAV_ITEMS: NavItem[] = [
   { to: '/copilot', label: 'Copilot', description: 'Ask questions about your documented systems', icon: MessageSquareText, group: 'main', section: 'Assist' },
   { to: '/settings', label: 'Settings', description: 'AI configuration and data management', icon: Settings, group: 'footer' },
 ];
+
+/** Navigation entries for features that are switched on (see config/features.ts). */
+export const NAV_ITEMS: NavItem[] = ALL_NAV_ITEMS.filter((i) => i.to !== '/copilot' || FEATURES.copilot);

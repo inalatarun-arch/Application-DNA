@@ -8,6 +8,7 @@ import Sidebar from './Sidebar';
 import Header from './Header';
 import CommandPalette from './CommandPalette';
 import CopilotPanel from './CopilotPanel';
+import { FEATURES } from '@/config/features';
 import GlobalAssistantButton from './GlobalAssistantButton';
 
 export default function AppShell() {
@@ -38,7 +39,7 @@ export default function AppShell() {
       if (key === 'k') {
         e.preventDefault();
         setSearchOpen((o) => !o);
-      } else if (key === 'j') {
+      } else if (key === 'j' && FEATURES.copilot) {
         e.preventDefault();
         setCopilotOpen((o) => !o);
       }
@@ -70,8 +71,12 @@ export default function AppShell() {
         </main>
       </div>
       <CommandPalette open={searchOpen} onClose={() => setSearchOpen(false)} />
-      <GlobalAssistantButton onClick={() => setCopilotOpen(true)} hidden={copilotOpen} />
-      <CopilotPanel open={copilotOpen} onClose={() => setCopilotOpen(false)} />
+      {FEATURES.copilot && (
+        <>
+          <GlobalAssistantButton onClick={() => setCopilotOpen(true)} hidden={copilotOpen} />
+          <CopilotPanel open={copilotOpen} onClose={() => setCopilotOpen(false)} />
+        </>
+      )}
     </div>
   );
 }
