@@ -1,3 +1,5 @@
+import { FEATURES } from './features';
+
 export interface GeminiModelOption {
   id: string;
   label: string;
@@ -9,7 +11,7 @@ export const DEFAULT_MODEL = 'gemini-flash-latest';
 
 export type AiFeature = 'transcript' | 'impact' | 'frd' | 'tdd' | 'testcases' | 'defects' | 'copilot' | 'application-ingestion' | 'screen-extraction' | 'requirement-import' | 'project-flow' | 'knowledge-flow' | 'flow-edit' | 'document-revise' | 'extraction-revise' | 'user-stories';
 
-export const AI_FEATURES: Array<{ id: AiFeature; label: string; description: string }> = [
+const ALL_AI_FEATURES: Array<{ id: AiFeature; label: string; description: string }> = [
   { id: 'transcript', label: 'Transcript processing', description: 'Meeting notes and requirement extraction' },
   { id: 'impact', label: 'Impact assessment', description: 'Functional, technical and gap analysis' },
   { id: 'frd', label: 'FRD generation', description: 'Functional Requirements Documents' },
@@ -27,6 +29,9 @@ export const AI_FEATURES: Array<{ id: AiFeature; label: string; description: str
   { id: 'extraction-revise', label: 'Extraction review', description: 'Adjust staged application knowledge from reviewer comments' },
   { id: 'user-stories', label: 'User stories', description: 'Turn approved requirements into user stories' },
 ];
+
+/** Features shown in Settings. Switched-off features are left out, but their saved model choice is kept. */
+export const AI_FEATURES = ALL_AI_FEATURES.filter((f) => f.id !== 'copilot' || FEATURES.copilot);
 
 export interface AiSettings {
   /** Model used when a feature has no override. */

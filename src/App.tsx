@@ -1,5 +1,6 @@
 import React from 'react';
-import { Route, Routes } from 'react-router-dom';
+import { Navigate, Route, Routes } from 'react-router-dom';
+import { FEATURES } from '@/config/features';
 import AppShell from '@/components/layout/AppShell';
 import DashboardPage from '@/pages/DashboardPage';
 import SettingsPage from '@/pages/SettingsPage';
@@ -47,7 +48,7 @@ export default function App() {
         </Route>
         <Route path="studio" element={<StudioPage />} />
         <Route path="testing" element={<TestingPage />} />
-        <Route path="copilot" element={<CopilotPage />} />
+        <Route path="copilot" element={FEATURES.copilot ? <CopilotPage /> : <Navigate to="/" replace />} />
         <Route path="settings" element={<SettingsPage />} />
         <Route
           path="*"

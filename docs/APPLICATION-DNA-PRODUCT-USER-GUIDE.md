@@ -1117,6 +1117,8 @@ This allows defects to be connected back to requirements, tests and technical co
 
 # 29. Copilot
 
+> **Status: hidden for now.** Copilot is switched off in the interface (navigation, floating button, Ctrl/Cmd + J and the Settings model list). The code is kept; set `copilot: true` in `src/config/features.ts` to bring it back.
+
 Copilot is the natural-language interface to the repository.
 
 It can be opened from:
