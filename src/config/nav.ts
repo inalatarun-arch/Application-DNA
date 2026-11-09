@@ -3,6 +3,7 @@ import {
   FileText,
   FlaskConical,
   FolderKanban,
+  Gamepad2,
   LayoutDashboard,
   MessageSquareText,
   Network,
@@ -29,6 +30,7 @@ const ALL_NAV_ITEMS: NavItem[] = [
   { to: '/studio', label: 'FRD/TDD Studio', description: 'Generate and edit design documents', icon: FileText, group: 'main' },
   { to: '/testing', label: 'Testing & RTM', description: 'Test cases, traceability and defects', icon: FlaskConical, group: 'main' },
   { to: '/copilot', label: 'Copilot', description: 'Ask questions about your documented systems', icon: MessageSquareText, group: 'main', section: 'Assist' },
+  { to: '/games', label: 'Games', description: 'Play Indian Rummy and more with friends online', icon: Gamepad2, group: 'main', section: 'Play' },
   { to: '/settings', label: 'Settings', description: 'AI configuration and data management', icon: Settings, group: 'footer' },
 ];
 

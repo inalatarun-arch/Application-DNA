@@ -20,6 +20,14 @@ npm run build      # type-check + production build into dist/
 - Backups exclude API keys by default; when included they are encrypted with a backup passphrase. The optional proxy in `proxy/` requires an access token.
 - Schema changes: add a new `this.version(n)` block in `src/db/db.ts` and bump `DB_SCHEMA_VERSION`.
 
+## Games
+The **Games** section (sidebar, or `#/games`) lets anyone who opens the site play with friends. First game: **Indian Rummy**, 13-card Points Rummy for 3 to 6 players.
+- One player creates a room and shares the 5-character code or the invite link; the others join from their own browser. No accounts, no server of your own.
+- Play is **peer-to-peer (WebRTC via PeerJS)**. The host's browser holds the real game state, checks every move and sends each player only their own cards. If the host closes the page the game ends; a guest who refreshes rejoins their seat.
+- Rules live in `src/games/rummy/engine.ts` (pure, unit tested). The room/host logic is `host.ts`, the network glue is `session.ts`, the screens are in `ui/` and `src/pages/games/`.
+- Connections use PeerJS's free public matchmaking server and Google STUN. A few strict networks (some corporate or mobile carriers) need a TURN relay. To self-host, set build-time variables: `VITE_PEER_HOST`, `VITE_PEER_PORT`, `VITE_PEER_PATH`, `VITE_PEER_SECURE`, and `VITE_PEER_ICE` (JSON list of ICE/TURN servers).
+- To add another game: build it under `src/games/<name>/`, add a route in `src/App.tsx` and an entry in `src/games/catalog.ts`.
+
 ## Documentation
 
 - [Application DNA Product & User Guide](docs/APPLICATION-DNA-PRODUCT-USER-GUIDE.md) — product overview, capabilities, user workflows, AI behavior, operating guidance, current limitations and recommended BA lifecycle.

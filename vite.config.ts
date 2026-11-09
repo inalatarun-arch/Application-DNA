@@ -7,6 +7,7 @@ import { fileURLToPath, URL } from 'node:url';
  * - script-src 'self': only the app's own bundled files may run, so injected script cannot read the unlocked API key.
  * - connect-src https: : the AI provider, an OpenAI-compatible base URL and the optional proxy are chosen by the user
  *   at run time, so any https host (and localhost for local models) must stay reachable.
+ * - wss: lets the Games section reach the PeerJS matchmaking service. Game traffic itself is peer-to-peer (WebRTC).
  * Not applied in `npm run dev`, where Vite needs inline scripts for hot reload.
  */
 const CSP = [
@@ -15,7 +16,7 @@ const CSP = [
   "style-src 'self' 'unsafe-inline'",
   "img-src 'self' data: blob:",
   "font-src 'self' data:",
-  "connect-src 'self' https: http://localhost:* http://127.0.0.1:* http://[::1]:*",
+  "connect-src 'self' https: wss: http://localhost:* http://127.0.0.1:* http://[::1]:*",
   "worker-src 'self' blob:",
   "object-src 'none'",
   "base-uri 'self'",

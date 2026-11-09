@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { Suspense } from 'react';
 import { Navigate, Route, Routes } from 'react-router-dom';
 import { FEATURES } from '@/config/features';
 import AppShell from '@/components/layout/AppShell';
@@ -20,6 +20,10 @@ import TestingPage from '@/pages/TestingPage';
 import CopilotPage from '@/pages/CopilotPage';
 import StudioPage from '@/pages/studio/StudioPage';
 import { migrateLegacyDelivery } from '@/db/deliveryMigration';
+
+// Games (and the PeerJS library) load only when someone opens the Games section.
+const GamesPage = React.lazy(() => import('@/pages/games/GamesPage'));
+const RummyPage = React.lazy(() => import('@/pages/games/RummyPage'));
 
 export default function App() {
   React.useEffect(() => { void migrateLegacyDelivery(); }, []);
@@ -48,6 +52,10 @@ export default function App() {
         </Route>
         <Route path="studio" element={<StudioPage />} />
         <Route path="testing" element={<TestingPage />} />
+        <Route path="games">
+          <Route index element={<Suspense fallback={<div className="skeleton h-40" />}><GamesPage /></Suspense>} />
+          <Route path="rummy" element={<Suspense fallback={<div className="skeleton h-40" />}><RummyPage /></Suspense>} />
+        </Route>
         <Route path="copilot" element={FEATURES.copilot ? <CopilotPage /> : <Navigate to="/" replace />} />
         <Route path="settings" element={<SettingsPage />} />
         <Route
